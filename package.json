@@ -1,0 +1,16 @@
+{
+  "name": "wildlink",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "wp-scripts build",
+    "start": "wp-scripts start"
+  },
+  "author": "David Carmichael",
+  "license": "ISC",
+  "description": "A tool to create AI generated patient stories for wildlife rehabilitation centres",
+  "devDependencies": {
+    "@wordpress/scripts": "^30.4.0"
+  }
+}
