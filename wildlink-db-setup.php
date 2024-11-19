@@ -35,8 +35,7 @@ function wildlink_create_species_table() {
         ['common_name' => 'Pileated Woodpecker', 'scientific_name' => 'Picidae', 'description' => 'Woodpeckers are a family of birds known for their drumming behavior on trees and ability to excavate wood to find insects. They have strong bills and specialized tongues.', 'image' => plugins_url('images/species-images/pileated-woodpecker.png', __FILE__)],
         ['common_name' => 'Violet Green Swallow', 'scientific_name' => 'Hirundinidae', 'description' => 'Swallows are small passerine birds known for their graceful aerial acrobatics. They feed on insects caught in flight and often build mud nests.', 'image' => plugins_url('images/species-images/violet-green-swallow.png', __FILE__)],
         ['common_name' => 'Least Sandpiper', 'scientific_name' => 'Scolopacidae', 'description' => 'Sandpipers are a diverse family of shorebirds found worldwide. They have long bills for probing in mud and sand, and they feed on small invertebrates.', 'image' => plugins_url('images/species-images/leasts-sandpiper.png', __FILE__)],
-        ['common_name' => 'Deer', 'scientific_name' => 'Cervidae', 'description' => 'Deer are hoofed mammals belonging to the family Cervidae. They are known for their antlers, which are typically found on males, and their herbivorous diet.', 'image' => plugins_url('images/species-images/deer.png', __FILE__)]]
-    ];
+        ['common_name' => 'Deer', 'scientific_name' => 'Cervidae', 'description' => 'Deer are hoofed mammals belonging to the family Cervidae. They are known for their antlers, which are typically found on males, and their herbivorous diet.', 'image' => plugins_url('images/species-images/deer.png', __FILE__)]];
 
     foreach ($initial_species as $species) {
         $wpdb->insert($table_name, $species);
