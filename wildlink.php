@@ -7,6 +7,7 @@ Author: David Carmichael
 */
 
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
+register_activation_hook(__FILE__, 'wildlink_create_species_table');
 
 function wildlink_enqueue_scripts() {
     $script_path = plugin_dir_path(__FILE__) . 'build/index.js';
@@ -18,16 +19,14 @@ function wildlink_enqueue_scripts() {
     } else {
         $version = time(); // Use a timestamp for development mode
     }
-    // Register the main script with WordPress
     wp_register_script(
         'wildlink',
-        plugins_url('/build/index.js', __FILE__), // The path to the compiled JavaScript file
-        ['wp-element'], // Dependency on wp-element for React in WordPress
-        $version, // Cache-busting based on file modification time
+        plugins_url('/build/index.js', __FILE__),
+        ['wp-element'], 
+        $version,
         true
     );
 
-    // Enqueue the script
     wp_enqueue_script('wildlink-script');
 
     // Register and enqueue the main stylesheet if it exists
@@ -41,7 +40,7 @@ function wildlink_enqueue_scripts() {
         wp_enqueue_style('wildlink-style');
     }
 
-    // Add a div container for the React app
+    // div container for the React app
     echo '<div id="wildlink"></div>';
 }
 
@@ -76,7 +75,6 @@ function wildlink_add_meta_boxes() {
 }
 
 function wildlink_render_meta_box($post) {
-    // Add nonce for security and authentication.
     wp_nonce_field('wildlink_nonce_action', 'wildlink_nonce');
 
     // Retrieve existing values from the database.
@@ -88,6 +86,11 @@ function wildlink_render_meta_box($post) {
     $release_date = get_post_meta($post->ID, '_release_date', true);
     $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
 
+    // Fetch species from the database
+    global $wpdb;
+    $species_table = $wpdb->prefix . 'species';
+    $species = $wpdb->get_results("SELECT id, common_name FROM $species_table");
+
     // Render the meta box form.
     ?>
     <label for="patient_case"><?php _e('Patient Case', 'wildlink'); ?></label>
@@ -96,8 +99,14 @@ function wildlink_render_meta_box($post) {
     <label for="date_admitted"><?php _e('Date Admitted', 'wildlink'); ?></label>
     <input type="date" name="date_admitted" id="date_admitted" value="<?php echo esc_attr($date_admitted); ?>" />
 
-    <label for="species_id"><?php _e('Species ID', 'wildlink'); ?></label>
-    <input type="text" name="species_id" id="species_id" value="<?php echo esc_attr($species_id); ?>" />
+    <label for="species_id"><?php _e('Species', 'wildlink'); ?></label>
+    <select name="species_id" id="species_id">
+        <?php foreach ($species as $specie) : ?>
+            <option value="<?php echo esc_attr($specie->id); ?>" <?php selected($species_id, $specie->id); ?>>
+                <?php echo esc_html($specie->common_name); ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
 
     <label for="location_found"><?php _e('Location Found', 'wildlink'); ?></label>
     <input type="text" name="location_found" id="location_found" value="<?php echo esc_attr($location_found); ?>" />
