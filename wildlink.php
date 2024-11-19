@@ -7,7 +7,7 @@ Author: David Carmichael
 */
 
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
-register_activation_hook(__FILE__, 'wildlink_create_species_table');
+register_activation_hook(__FILE__, 'wildlink_create_tables');
 
 function wildlink_enqueue_scripts() {
     $script_path = plugin_dir_path(__FILE__) . 'build/index.js';
