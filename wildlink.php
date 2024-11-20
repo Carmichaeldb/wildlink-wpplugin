@@ -85,11 +85,33 @@ function wildlink_render_meta_box($post) {
     $is_released = get_post_meta($post->ID, '_is_released', true);
     $release_date = get_post_meta($post->ID, '_release_date', true);
     $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
+    $patient_conditions = get_post_meta($post->ID, '_conditions', true);
+    $patient_treatments = get_post_meta($post->ID, '_treatments', true);
 
     // Fetch species from the database
     global $wpdb;
     $species_table = $wpdb->prefix . 'species';
     $species = $wpdb->get_results("SELECT id, common_name FROM $species_table");
+
+    //Fetch age ranges from the database
+    $age_ranges_table = $wpdb->prefix . 'age_ranges';
+    $age_ranges = $wpdb->get_results("SELECT id, range_name FROM $age_ranges_table");
+
+    // Fetch conditions from the database
+    $conditions_table = $wpdb->prefix . 'conditions';
+    $conditions_list = $wpdb->get_results("SELECT id, condition_name FROM $conditions_table");
+
+    // Fetch treatments from the database
+    $treatments_table = $wpdb->prefix . 'treatments';
+    $treatments_list = $wpdb->get_results("SELECT id, treatment_name FROM $treatments_table");
+
+    // Fetch existing conditions and treatments for the patient
+    $patient_conditions = $wpdb->get_col($wpdb->prepare("SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", $post->ID));
+    $patient_treatments = $wpdb->get_col($wpdb->prepare("SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", $post->ID));
+
+    // Ensure conditions and treatments are arrays
+    $patient_conditions = is_array($patient_conditions) ? $patient_conditions : [];
+    $patient_treatments = is_array($patient_treatments) ? $patient_treatments : [];
 
     // Render the meta box form.
     ?>
@@ -117,8 +139,31 @@ function wildlink_render_meta_box($post) {
     <label for="release_date"><?php _e('Release Date', 'wildlink'); ?></label>
     <input type="date" name="release_date" id="release_date" value="<?php echo esc_attr($release_date); ?>" />
 
-    <label for="age_range_id"><?php _e('Age Range ID', 'wildlink'); ?></label>
-    <input type="number" name="age_range_id" id="age_range_id" value="<?php echo esc_attr($age_range_id); ?>" />
+    <label for="age_range_id"><?php _e('Age Range', 'wildlink'); ?></label>
+    <select name="age_range_id" id="age_range_id">
+        <?php foreach ($age_ranges as $age_range) : ?>
+            <option value="<?php echo esc_attr($age_range->id); ?>" <?php selected($age_range_id, $age_range->id); ?>>
+                <?php echo esc_html($age_range->range_name); ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <label for="conditions"><?php _e('Conditions', 'wildlink'); ?></label>
+    <select name="conditions[]" id="conditions" multiple>
+        <?php foreach ($conditions_list as $condition) : ?>
+            <option value="<?php echo esc_attr($condition->id); ?>" <?php echo in_array($condition->id, $patient_conditions) ? 'selected' : ''; ?>>
+                <?php echo esc_html($condition->condition_name); ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+
+    <label for="treatments"><?php _e('Treatments', 'wildlink'); ?></label>
+    <select name="treatments[]" id="treatments" multiple>
+        <?php foreach ($treatments_list as $treatment) : ?>
+            <option value="<?php echo esc_attr($treatment->id); ?>" <?php echo in_array($treatment->id, $patient_treatments) ? 'selected' : ''; ?>>
+                <?php echo esc_html($treatment->treatment_name); ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
     <?php
 }
 
@@ -139,6 +184,8 @@ function wildlink_save_meta_box($post_id) {
     update_post_meta($post_id, '_is_released', isset($_POST['is_released']) ? 1 : 0);
     update_post_meta($post_id, '_release_date', sanitize_text_field($_POST['release_date']));
     update_post_meta($post_id, '_age_range_id', sanitize_text_field($_POST['age_range_id']));
+    update_post_meta($post_id, '_conditions', array_map('sanitize_text_field', $_POST['conditions']));
+    update_post_meta($post_id, '_treatments', array_map('sanitize_text_field', $_POST['treatments']));
 }
 
 add_action('save_post', 'wildlink_save_meta_box');

@@ -132,6 +132,38 @@ function wildlink_create_tables() {
             $wpdb->insert($age_ranges_table, $age_range);
         }
     }
+
+    // Create patient_conditions table
+    $patient_conditions_table = $wpdb->prefix . 'patient_conditions';
+    if ($wpdb->get_var("SHOW TABLES LIKE '$patient_conditions_table'") != $patient_conditions_table) {
+        $patient_conditions_sql = "CREATE TABLE $patient_conditions_table (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            patient_id bigint(20) UNSIGNED NOT NULL,
+            condition_id mediumint(9) NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            FOREIGN KEY (patient_id) REFERENCES {$wpdb->prefix}posts(ID) ON DELETE CASCADE,
+            FOREIGN KEY (condition_id) REFERENCES $conditions_table(id) ON DELETE CASCADE
+        ) $charset_collate;";
+        dbDelta($patient_conditions_sql);
+    }
+
+    // Create patient_treatments table
+    $patient_treatments_table = $wpdb->prefix . 'patient_treatments';
+    if ($wpdb->get_var("SHOW TABLES LIKE '$patient_treatments_table'") != $patient_treatments_table) {
+        $patient_treatments_sql = "CREATE TABLE $patient_treatments_table (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            patient_id bigint(20) UNSIGNED NOT NULL,
+            treatment_id mediumint(9) NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            FOREIGN KEY (patient_id) REFERENCES {$wpdb->prefix}posts(ID) ON DELETE CASCADE,
+            FOREIGN KEY (treatment_id) REFERENCES $treatments_table(id) ON DELETE CASCADE
+        ) $charset_collate;";
+        dbDelta($patient_treatments_sql);
+    }
 }
 
 register_activation_hook(__FILE__, 'wildlink_create_tables');
