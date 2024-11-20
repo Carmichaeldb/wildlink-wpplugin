@@ -85,11 +85,18 @@ function wildlink_render_meta_box($post) {
     $is_released = get_post_meta($post->ID, '_is_released', true);
     $release_date = get_post_meta($post->ID, '_release_date', true);
     $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
-    $patient_conditions = get_post_meta($post->ID, '_conditions', true);
-    $patient_treatments = get_post_meta($post->ID, '_treatments', true);
+
+    global $wpdb;
+
+    // Fetch existing conditions and treatments for the patient
+    $patient_conditions = $wpdb->get_col($wpdb->prepare("SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", $post->ID));
+    $patient_treatments = $wpdb->get_col($wpdb->prepare("SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", $post->ID));
+
+    // Ensure conditions and treatments are arrays
+    $patient_conditions = is_array($patient_conditions) ? $patient_conditions : [];
+    $patient_treatments = is_array($patient_treatments) ? $patient_treatments : [];
 
     // Fetch species from the database
-    global $wpdb;
     $species_table = $wpdb->prefix . 'species';
     $species = $wpdb->get_results("SELECT id, common_name FROM $species_table");
 
@@ -104,14 +111,6 @@ function wildlink_render_meta_box($post) {
     // Fetch treatments from the database
     $treatments_table = $wpdb->prefix . 'treatments';
     $treatments_list = $wpdb->get_results("SELECT id, treatment_name FROM $treatments_table");
-
-    // Fetch existing conditions and treatments for the patient
-    $patient_conditions = $wpdb->get_col($wpdb->prepare("SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", $post->ID));
-    $patient_treatments = $wpdb->get_col($wpdb->prepare("SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", $post->ID));
-
-    // Ensure conditions and treatments are arrays
-    $patient_conditions = is_array($patient_conditions) ? $patient_conditions : [];
-    $patient_treatments = is_array($patient_treatments) ? $patient_treatments : [];
 
     // Render the meta box form.
     ?>
@@ -186,6 +185,29 @@ function wildlink_save_meta_box($post_id) {
     update_post_meta($post_id, '_age_range_id', sanitize_text_field($_POST['age_range_id']));
     update_post_meta($post_id, '_conditions', array_map('sanitize_text_field', $_POST['conditions']));
     update_post_meta($post_id, '_treatments', array_map('sanitize_text_field', $_POST['treatments']));
+
+    // Save conditions
+    global $wpdb;
+    $wpdb->delete("{$wpdb->prefix}patient_conditions", ['patient_id' => $post_id]);
+    if (isset($_POST['conditions']) && is_array($_POST['conditions'])) {
+        foreach ($_POST['conditions'] as $condition_id) {
+            $wpdb->insert("{$wpdb->prefix}patient_conditions", [
+                'patient_id' => $post_id,
+                'condition_id' => sanitize_text_field($condition_id),
+            ]);
+        }
+    }
+
+    // Save treatments
+    $wpdb->delete("{$wpdb->prefix}patient_treatments", ['patient_id' => $post_id]);
+    if (isset($_POST['treatments']) && is_array($_POST['treatments'])) {
+        foreach ($_POST['treatments'] as $treatment_id) {
+            $wpdb->insert("{$wpdb->prefix}patient_treatments", [
+                'patient_id' => $post_id,
+                'treatment_id' => sanitize_text_field($treatment_id),
+            ]);
+        }
+    }
 }
 
 add_action('save_post', 'wildlink_save_meta_box');
