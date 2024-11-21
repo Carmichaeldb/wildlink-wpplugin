@@ -17,7 +17,7 @@ jQuery(document).ready(function($) {
         mediaUploader.on('select', function() {
             var attachment = mediaUploader.state().get('selection').first().toJSON();
             $('#patient_image').val(attachment.id);
-            $('#patient_image_preview').html('<img src="' + attachment.url + '" style="max-width: 100%;" />');
+            $('#patient_image_preview').html('<img src="' + attachment.url + '" style="max-width: 200px;" />');
         });
         mediaUploader.open();
     });
@@ -32,7 +32,7 @@ jQuery(document).ready(function($) {
         var speciesId = $(this).val();
         var speciesImage = speciesData[speciesId] || '';
         if (speciesImage) {
-            $('#patient_image_preview').html('<img src="' + speciesImage + '" style="max-width: 100%;" />');
+            $('#patient_image_preview').html('<img src="' + speciesImage + '" style="max-width: 200px;" />');
         } else {
             $('#patient_image_preview').html('');
         }

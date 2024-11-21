@@ -7,29 +7,30 @@ Author: David Carmichael
 */
 
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
+
 register_activation_hook(__FILE__, 'wildlink_create_tables');
 
+// Enqueue React app scripts and styles
 function wildlink_enqueue_scripts() {
     $script_path = plugin_dir_path(__FILE__) . 'build/index.js';
     $style_path = plugin_dir_path(__FILE__) . 'build/index.css';
 
-    // Check if the build file exists (for development mode, it won't)
     if (file_exists($script_path)) {
-        $version = filemtime($script_path); // Use filemtime for cache-busting in production
+        $version = filemtime($script_path);
     } else {
-        $version = time(); // Use a timestamp for development mode
+        $version = time();
     }
+
     wp_register_script(
         'wildlink',
         plugins_url('/build/index.js', __FILE__),
-        ['wp-element'], 
+        ['wp-element'],
         $version,
         true
     );
 
-    wp_enqueue_script('wildlink-script');
+    wp_enqueue_script('wildlink');
 
-    // Register and enqueue the main stylesheet if it exists
     if (file_exists($style_path)) {
         wp_register_style(
             'wildlink-style',
@@ -40,11 +41,20 @@ function wildlink_enqueue_scripts() {
         wp_enqueue_style('wildlink-style');
     }
 
-    // div container for the React app
     echo '<div id="wildlink"></div>';
 }
 
 add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
+
+// Enqueue admin scripts and styles
+function wildlink_enqueue_admin_scripts() {
+    wp_enqueue_script('jquery');
+    wp_enqueue_script('jquery-ui-datepicker');
+    wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+    wp_enqueue_script('wildlink-admin', plugins_url('/admin.js', __FILE__), ['jquery', 'jquery-ui-datepicker'], null, true);
+}
+
+add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
 
 // Register custom post type
 function wildlink_register_post_type() {
@@ -87,6 +97,10 @@ function wildlink_render_meta_box($post) {
     $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
     $patient_image = get_post_meta($post->ID, '_patient_image', true);
 
+    // Ensure date values are in the correct format (YYYY-MM-DD)
+    $date_admitted = $date_admitted ? date('Y-m-d', strtotime($date_admitted)) : '';
+    $release_date = $release_date ? date('Y-m-d', strtotime($release_date)) : '';
+
     global $wpdb;
 
     // Fetch existing conditions and treatments for the patient
@@ -101,7 +115,7 @@ function wildlink_render_meta_box($post) {
     $species_table = $wpdb->prefix . 'species';
     $species = $wpdb->get_results("SELECT id, common_name, image FROM $species_table");
 
-    //Fetch age ranges from the database
+    // Fetch age ranges from the database
     $age_ranges_table = $wpdb->prefix . 'age_ranges';
     $age_ranges = $wpdb->get_results("SELECT id, range_name FROM $age_ranges_table");
 
@@ -130,6 +144,9 @@ function wildlink_render_meta_box($post) {
     <label for="date_admitted"><?php _e('Date Admitted', 'wildlink'); ?></label>
     <input type="date" name="date_admitted" id="date_admitted" value="<?php echo esc_attr($date_admitted); ?>" />
 
+    <label for="location_found"><?php _e('Location Found', 'wildlink'); ?></label>
+    <input type="text" name="location_found" id="location_found" value="<?php echo esc_attr($location_found); ?>" />
+
     <label for="species_id"><?php _e('Species', 'wildlink'); ?></label>
     <select name="species_id" id="species_id">
         <?php foreach ($species as $specie) : ?>
@@ -139,15 +156,6 @@ function wildlink_render_meta_box($post) {
         <?php endforeach; ?>
     </select>
 
-    <label for="location_found"><?php _e('Location Found', 'wildlink'); ?></label>
-    <input type="text" name="location_found" id="location_found" value="<?php echo esc_attr($location_found); ?>" />
-
-    <label for="is_released"><?php _e('Is Released', 'wildlink'); ?></label>
-    <input type="checkbox" name="is_released" id="is_released" value="1" <?php checked($is_released, 1); ?> />
-
-    <label for="release_date"><?php _e('Release Date', 'wildlink'); ?></label>
-    <input type="date" name="release_date" id="release_date" value="<?php echo esc_attr($release_date); ?>" />
-
     <label for="age_range_id"><?php _e('Age Range', 'wildlink'); ?></label>
     <select name="age_range_id" id="age_range_id">
         <?php foreach ($age_ranges as $age_range) : ?>
@@ -156,6 +164,14 @@ function wildlink_render_meta_box($post) {
             </option>
         <?php endforeach; ?>
     </select>
+
+    <label for="is_released"><?php _e('Is Released', 'wildlink'); ?></label>
+    <input type="checkbox" name="is_released" id="is_released" value="1" <?php checked($is_released, 1); ?> />
+
+    <label for="release_date"><?php _e('Release Date', 'wildlink'); ?></label>
+    <input type="date" name="release_date" id="release_date" value="<?php echo esc_attr($release_date); ?>" />
+
+
     <label for="conditions"><?php _e('Conditions', 'wildlink'); ?></label>
     <select name="conditions[]" id="conditions" multiple>
         <?php foreach ($conditions_list as $condition) : ?>
@@ -177,11 +193,7 @@ function wildlink_render_meta_box($post) {
     <label for="patient_image"><?php _e('Patient Image', 'wildlink'); ?></label>
     <input type="hidden" name="patient_image" id="patient_image" value="<?php echo esc_attr($patient_image); ?>" />
     <div id="patient_image_preview">
-        <?php if ($patient_image) : ?>
-            <img src="<?php echo esc_url(wp_get_attachment_url($patient_image)); ?>" style="max-width: 100%;" />
-        <?php elseif ($species_image) : ?>
-            <img src="<?php echo esc_url($species_image); ?>" style="max-width: 200px;" />
-        <?php endif; ?>
+        <img src="<?php echo plugins_url('includes/images/bald-eagle.jpg', __FILE__); ?>" style="max-width: 200px;" />
     </div>
     <input type="button" id="upload_patient_image_button" class="button" value="<?php _e('Upload Image', 'wildlink'); ?>" />
     <input type="button" id="remove_patient_image_button" class="button" value="<?php _e('Remove Image', 'wildlink'); ?>" />
