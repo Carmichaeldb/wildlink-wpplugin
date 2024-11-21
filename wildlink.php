@@ -55,7 +55,7 @@ function wildlink_register_post_type() {
         ],
         'public' => true,
         'has_archive' => true,
-        'supports' => ['title', 'editor', 'thumbnail'],
+        'supports' => ['title', 'editor', 'thumbnail', 'custom-fields'],
         'show_in_rest' => true,
     ]);
 }
@@ -85,6 +85,7 @@ function wildlink_render_meta_box($post) {
     $is_released = get_post_meta($post->ID, '_is_released', true);
     $release_date = get_post_meta($post->ID, '_release_date', true);
     $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
+    $patient_image = get_post_meta($post->ID, '_patient_image', true);
 
     global $wpdb;
 
@@ -98,7 +99,7 @@ function wildlink_render_meta_box($post) {
 
     // Fetch species from the database
     $species_table = $wpdb->prefix . 'species';
-    $species = $wpdb->get_results("SELECT id, common_name FROM $species_table");
+    $species = $wpdb->get_results("SELECT id, common_name, image FROM $species_table");
 
     //Fetch age ranges from the database
     $age_ranges_table = $wpdb->prefix . 'age_ranges';
@@ -111,6 +112,15 @@ function wildlink_render_meta_box($post) {
     // Fetch treatments from the database
     $treatments_table = $wpdb->prefix . 'treatments';
     $treatments_list = $wpdb->get_results("SELECT id, treatment_name FROM $treatments_table");
+
+    // Get the species image if no patient image is provided
+    $species_image = '';
+    foreach ($species as $specie) {
+        if ($specie->id == $species_id) {
+            $species_image = $specie->image;
+            break;
+        }
+    }
 
     // Render the meta box form.
     ?>
@@ -163,10 +173,40 @@ function wildlink_render_meta_box($post) {
             </option>
         <?php endforeach; ?>
     </select>
+
+    <label for="patient_image"><?php _e('Patient Image', 'wildlink'); ?></label>
+    <input type="hidden" name="patient_image" id="patient_image" value="<?php echo esc_attr($patient_image); ?>" />
+    <div id="patient_image_preview">
+        <?php if ($patient_image) : ?>
+            <img src="<?php echo esc_url(wp_get_attachment_url($patient_image)); ?>" style="max-width: 100%;" />
+        <?php elseif ($species_image) : ?>
+            <img src="<?php echo esc_url($species_image); ?>" style="max-width: 200px;" />
+        <?php endif; ?>
+    </div>
+    <input type="button" id="upload_patient_image_button" class="button" value="<?php _e('Upload Image', 'wildlink'); ?>" />
+    <input type="button" id="remove_patient_image_button" class="button" value="<?php _e('Remove Image', 'wildlink'); ?>" />
     <?php
 }
 
 add_action('add_meta_boxes', 'wildlink_add_meta_boxes');
+
+// Enqueue scripts for media uploader
+function wildlink_enqueue_media_uploader() {
+    wp_enqueue_media();
+    wp_enqueue_script('wildlink-media-uploader', plugins_url('/media-uploader.js', __FILE__), ['jquery'], null, true);
+
+    // Pass species data to JavaScript
+    global $wpdb;
+    $species_table = $wpdb->prefix . 'species';
+    $species = $wpdb->get_results("SELECT id, image FROM $species_table");
+    $species_data = [];
+    foreach ($species as $specie) {
+        $species_data[$specie->id] = esc_url($specie->image);
+    }
+    wp_localize_script('wildlink-media-uploader', 'speciesData', $species_data);
+}
+
+add_action('admin_enqueue_scripts', 'wildlink_enqueue_media_uploader');
 
 // Save custom meta box data
 function wildlink_save_meta_box($post_id) {
@@ -183,8 +223,7 @@ function wildlink_save_meta_box($post_id) {
     update_post_meta($post_id, '_is_released', isset($_POST['is_released']) ? 1 : 0);
     update_post_meta($post_id, '_release_date', sanitize_text_field($_POST['release_date']));
     update_post_meta($post_id, '_age_range_id', sanitize_text_field($_POST['age_range_id']));
-    update_post_meta($post_id, '_conditions', array_map('sanitize_text_field', $_POST['conditions']));
-    update_post_meta($post_id, '_treatments', array_map('sanitize_text_field', $_POST['treatments']));
+    update_post_meta($post_id, '_patient_image', sanitize_text_field($_POST['patient_image']));
 
     // Save conditions
     global $wpdb;
