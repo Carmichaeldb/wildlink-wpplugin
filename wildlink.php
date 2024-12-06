@@ -10,50 +10,50 @@ require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
 
 register_activation_hook(__FILE__, 'wildlink_create_tables');
 
-// Enqueue React app scripts and styles
+// Frontend scripts
 function wildlink_enqueue_scripts() {
     $script_path = plugin_dir_path(__FILE__) . 'build/index.js';
     $style_path = plugin_dir_path(__FILE__) . 'build/index.css';
 
     if (file_exists($script_path)) {
         $version = filemtime($script_path);
-    } else {
-        $version = time();
+        wp_register_script(
+            'wildlink-frontend',
+            plugins_url('/build/index.js', __FILE__),
+            ['wp-element'],
+            $version,
+            true
+        );
+        wp_enqueue_script('wildlink-frontend');
     }
-
-    wp_register_script(
-        'wildlink',
-        plugins_url('/build/index.js', __FILE__),
-        ['wp-element'],
-        $version,
-        true
-    );
-
-    wp_enqueue_script('wildlink');
 
     if (file_exists($style_path)) {
         wp_register_style(
-            'wildlink-style',
+            'wildlink-frontend-style',
             plugins_url('/build/index.css', __FILE__),
             [],
             $version
         );
-        wp_enqueue_style('wildlink-style');
+        wp_enqueue_style('wildlink-frontend-style');
     }
-
-    echo '<div id="wildlink"></div>';
 }
-
 add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
 
 // Enqueue admin scripts and styles
 function wildlink_enqueue_admin_scripts() {
-    wp_enqueue_script('jquery');
-    wp_enqueue_script('jquery-ui-datepicker');
-    wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
-    wp_enqueue_script('wildlink-admin', plugins_url('/admin.js', __FILE__), ['jquery', 'jquery-ui-datepicker'], null, true);
+    wp_enqueue_media();
+    wp_enqueue_script('react', 'https://unpkg.com/react@18/umd/react.production.min.js', [], null, true);
+    wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js', [], null, true);
+    wp_enqueue_script('react-select', 'https://unpkg.com/react-select@5/dist/react-select.min.js', [], null, true);
+    wp_enqueue_style('react-select-css', 'https://unpkg.com/react-select@5/dist/react-select.css');
+    wp_enqueue_script(
+        'wildlink-admin',
+        plugins_url('/build/admin.js', __FILE__),
+        ['react', 'react-dom', 'react-select', 'wp-element'],
+        null,
+        true
+    );
 }
-
 add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
 
 // Register custom post type
@@ -65,200 +65,214 @@ function wildlink_register_post_type() {
         ],
         'public' => true,
         'has_archive' => true,
-        'supports' => ['title', 'editor', 'thumbnail', 'custom-fields'],
+        'supports' => ['title', 'editor'],
         'show_in_rest' => true,
     ]);
 }
-
 add_action('init', 'wildlink_register_post_type');
 
-// Add custom meta boxes
-function wildlink_add_meta_boxes() {
+// Custom REST endpoint
+add_action('rest_api_init', function() {
+    register_rest_route('wildlink/v1', '/patient/(?P<id>\d+)', [
+        [
+            'methods' => 'POST',
+            'callback' => 'wildlink_save_patient_data',
+            'permission_callback' => function() {
+                return current_user_can('edit_posts');
+            }
+        ],
+        [
+            'methods' => 'GET',
+            'callback' => 'wildlink_get_patient_data',
+            'permission_callback' => function() {
+                return current_user_can('edit_posts');
+            }
+        ]
+    ]);
+});
+
+function wildlink_add_meta_box() {
     add_meta_box(
-        'patient_details',
-        __('Patient Details'),
-        'wildlink_render_meta_box',
+        'wildlink_patient_form',
+        'Patient Details',
+        'wildlink_render_form',
         'patient',
         'normal',
         'high'
     );
+
+    // Remove default editor
+    remove_post_type_support('patient', 'editor');
+}
+add_action('add_meta_boxes', 'wildlink_add_meta_box');
+
+function wildlink_render_form($post) {
+    // Container for React to mount
+    echo '<div id="patient-form-root" data-post-id="' . esc_attr($post->ID) . '"></div>';
 }
 
-function wildlink_render_meta_box($post) {
-    wp_nonce_field('wildlink_nonce_action', 'wildlink_nonce');
-
-    // Retrieve existing values from the database.
-    $patient_case = get_post_meta($post->ID, '_patient_case', true);
-    $date_admitted = get_post_meta($post->ID, '_date_admitted', true);
-    $species_id = get_post_meta($post->ID, '_species_id', true);
-    $location_found = get_post_meta($post->ID, '_location_found', true);
-    $is_released = get_post_meta($post->ID, '_is_released', true);
-    $release_date = get_post_meta($post->ID, '_release_date', true);
-    $age_range_id = get_post_meta($post->ID, '_age_range_id', true);
-    $patient_image = get_post_meta($post->ID, '_patient_image', true);
-
-    // Ensure date values are in the correct format (YYYY-MM-DD)
-    $date_admitted = $date_admitted ? date('Y-m-d', strtotime($date_admitted)) : '';
-    $release_date = $release_date ? date('Y-m-d', strtotime($release_date)) : '';
-
+function wildlink_get_patient_data($request) {
     global $wpdb;
+    $post_id = $request['id'];
+    
+    // Get patient meta
+    $patient_meta = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}patient_meta WHERE patient_id = %d",
+        $post_id
+    ));
 
-    // Fetch existing conditions and treatments for the patient
-    $patient_conditions = $wpdb->get_col($wpdb->prepare("SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", $post->ID));
-    $patient_treatments = $wpdb->get_col($wpdb->prepare("SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", $post->ID));
+    // Get patient conditions
+    $conditions = $wpdb->get_col($wpdb->prepare(
+        "SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d",
+        $post_id
+    ));
 
-    // Ensure conditions and treatments are arrays
-    $patient_conditions = is_array($patient_conditions) ? $patient_conditions : [];
-    $patient_treatments = is_array($patient_treatments) ? $patient_treatments : [];
+    // Get patient treatments 
+    $treatments = $wpdb->get_col($wpdb->prepare(
+        "SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d",
+        $post_id
+    ));
 
-    // Fetch species from the database
-    $species_table = $wpdb->prefix . 'species';
-    $species = $wpdb->get_results("SELECT id, common_name, image FROM $species_table");
+    // Get species list
+    $species = $wpdb->get_results(
+        "SELECT id, common_name as label, scientific_name, description, image FROM {$wpdb->prefix}species"
+    );
 
-    // Fetch age ranges from the database
-    $age_ranges_table = $wpdb->prefix . 'age_ranges';
-    $age_ranges = $wpdb->get_results("SELECT id, range_name FROM $age_ranges_table");
+    // Get conditions list
+    $conditions_list = $wpdb->get_results(
+        "SELECT id, condition_name as label FROM {$wpdb->prefix}conditions"
+    );
 
-    // Fetch conditions from the database
-    $conditions_table = $wpdb->prefix . 'conditions';
-    $conditions_list = $wpdb->get_results("SELECT id, condition_name FROM $conditions_table");
+    // Get treatments list
+    $treatments_list = $wpdb->get_results(
+        "SELECT id, treatment_name as label FROM {$wpdb->prefix}treatments"
+    );
 
-    // Fetch treatments from the database
-    $treatments_table = $wpdb->prefix . 'treatments';
-    $treatments_list = $wpdb->get_results("SELECT id, treatment_name FROM $treatments_table");
-
-    // Get the species image if no patient image is provided
-    $species_image = '';
-    foreach ($species as $specie) {
-        if ($specie->id == $species_id) {
-            $species_image = $specie->image;
-            break;
-        }
-    }
-
-    // Render the meta box form.
-    ?>
-    <label for="patient_case"><?php _e('Patient Case', 'wildlink'); ?></label>
-    <input type="text" name="patient_case" id="patient_case" value="<?php echo esc_attr($patient_case); ?>" />
-
-    <label for="date_admitted"><?php _e('Date Admitted', 'wildlink'); ?></label>
-    <input type="date" name="date_admitted" id="date_admitted" value="<?php echo esc_attr($date_admitted); ?>" />
-
-    <label for="location_found"><?php _e('Location Found', 'wildlink'); ?></label>
-    <input type="text" name="location_found" id="location_found" value="<?php echo esc_attr($location_found); ?>" />
-
-    <label for="species_id"><?php _e('Species', 'wildlink'); ?></label>
-    <select name="species_id" id="species_id">
-        <?php foreach ($species as $specie) : ?>
-            <option value="<?php echo esc_attr($specie->id); ?>" <?php selected($species_id, $specie->id); ?>>
-                <?php echo esc_html($specie->common_name); ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-
-    <label for="age_range_id"><?php _e('Age Range', 'wildlink'); ?></label>
-    <select name="age_range_id" id="age_range_id">
-        <?php foreach ($age_ranges as $age_range) : ?>
-            <option value="<?php echo esc_attr($age_range->id); ?>" <?php selected($age_range_id, $age_range->id); ?>>
-                <?php echo esc_html($age_range->range_name); ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-
-    <label for="is_released"><?php _e('Is Released', 'wildlink'); ?></label>
-    <input type="checkbox" name="is_released" id="is_released" value="1" <?php checked($is_released, 1); ?> />
-
-    <label for="release_date"><?php _e('Release Date', 'wildlink'); ?></label>
-    <input type="date" name="release_date" id="release_date" value="<?php echo esc_attr($release_date); ?>" />
-
-
-    <label for="conditions"><?php _e('Conditions', 'wildlink'); ?></label>
-    <select name="conditions[]" id="conditions" multiple>
-        <?php foreach ($conditions_list as $condition) : ?>
-            <option value="<?php echo esc_attr($condition->id); ?>" <?php echo in_array($condition->id, $patient_conditions) ? 'selected' : ''; ?>>
-                <?php echo esc_html($condition->condition_name); ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-
-    <label for="treatments"><?php _e('Treatments', 'wildlink'); ?></label>
-    <select name="treatments[]" id="treatments" multiple>
-        <?php foreach ($treatments_list as $treatment) : ?>
-            <option value="<?php echo esc_attr($treatment->id); ?>" <?php echo in_array($treatment->id, $patient_treatments) ? 'selected' : ''; ?>>
-                <?php echo esc_html($treatment->treatment_name); ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-
-    <label for="patient_image"><?php _e('Patient Image', 'wildlink'); ?></label>
-    <input type="hidden" name="patient_image" id="patient_image" value="<?php echo esc_attr($patient_image); ?>" />
-    <div id="patient_image_preview">
-        <img src="<?php echo plugins_url('includes/images/bald-eagle.jpg', __FILE__); ?>" style="max-width: 200px;" />
-    </div>
-    <input type="button" id="upload_patient_image_button" class="button" value="<?php _e('Upload Image', 'wildlink'); ?>" />
-    <input type="button" id="remove_patient_image_button" class="button" value="<?php _e('Remove Image', 'wildlink'); ?>" />
-    <?php
+    return rest_ensure_response([
+        'patient' => $patient_meta,
+        'patient_conditions' => $conditions,
+        'patient_treatments' => $treatments,
+        'species_options' => $species,
+        'conditions_options' => $conditions_list,
+        'treatments_options' => $treatments_list
+    ]);
 }
 
-add_action('add_meta_boxes', 'wildlink_add_meta_boxes');
-
-// Enqueue scripts for media uploader
-function wildlink_enqueue_media_uploader() {
-    wp_enqueue_media();
-    wp_enqueue_script('wildlink-media-uploader', plugins_url('/media-uploader.js', __FILE__), ['jquery'], null, true);
-
-    // Pass species data to JavaScript
+// Save patient data
+function wildlink_save_patient_data($request) {
     global $wpdb;
-    $species_table = $wpdb->prefix . 'species';
-    $species = $wpdb->get_results("SELECT id, image FROM $species_table");
-    $species_data = [];
-    foreach ($species as $specie) {
-        $species_data[$specie->id] = esc_url($specie->image);
-    }
-    wp_localize_script('wildlink-media-uploader', 'speciesData', $species_data);
-}
+    
+    $post_id = $request['id'];
+    $data = $request->get_json_params();
 
-add_action('admin_enqueue_scripts', 'wildlink_enqueue_media_uploader');
-
-// Save custom meta box data
-function wildlink_save_meta_box($post_id) {
-    // Check nonce for security.
-    if (!isset($_POST['wildlink_nonce']) || !wp_verify_nonce($_POST['wildlink_nonce'], 'wildlink_nonce_action')) {
-        return;
-    }
-
-    // Save or update the meta fields.
-    update_post_meta($post_id, '_patient_case', sanitize_text_field($_POST['patient_case']));
-    update_post_meta($post_id, '_date_admitted', sanitize_text_field($_POST['date_admitted']));
-    update_post_meta($post_id, '_species_id', sanitize_text_field($_POST['species_id']));
-    update_post_meta($post_id, '_location_found', sanitize_text_field($_POST['location_found']));
-    update_post_meta($post_id, '_is_released', isset($_POST['is_released']) ? 1 : 0);
-    update_post_meta($post_id, '_release_date', sanitize_text_field($_POST['release_date']));
-    update_post_meta($post_id, '_age_range_id', sanitize_text_field($_POST['age_range_id']));
-    update_post_meta($post_id, '_patient_image', sanitize_text_field($_POST['patient_image']));
-
-    // Save conditions
-    global $wpdb;
-    $wpdb->delete("{$wpdb->prefix}patient_conditions", ['patient_id' => $post_id]);
-    if (isset($_POST['conditions']) && is_array($_POST['conditions'])) {
-        foreach ($_POST['conditions'] as $condition_id) {
-            $wpdb->insert("{$wpdb->prefix}patient_conditions", [
-                'patient_id' => $post_id,
-                'condition_id' => sanitize_text_field($condition_id),
-            ]);
+    // logging to verify data while testing
+    error_log('Saving patient data for ID: ' . $post_id);
+    error_log('Received data: ' . print_r($data, true));
+    
+    try {
+        // Validate required fields
+        $required_fields = ['patient_case', 'species_id', 'date_admitted'];
+        foreach ($required_fields as $field) {
+            if (empty($data[$field])) {
+                throw new Exception("Missing required field: {$field}");
+            }
         }
-    }
 
-    // Save treatments
-    $wpdb->delete("{$wpdb->prefix}patient_treatments", ['patient_id' => $post_id]);
-    if (isset($_POST['treatments']) && is_array($_POST['treatments'])) {
-        foreach ($_POST['treatments'] as $treatment_id) {
-            $wpdb->insert("{$wpdb->prefix}patient_treatments", [
-                'patient_id' => $post_id,
-                'treatment_id' => sanitize_text_field($treatment_id),
-            ]);
+        // Save to patient_meta
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}patient_meta WHERE patient_id = %d",
+            $post_id
+        ));
+        
+        if ($exists) {
+            // Update Patient
+            $result = $wpdb->update(
+                $wpdb->prefix . 'patient_meta',
+                [
+                    'patient_case' => $data['patient_case'],
+                    'species_id' => $data['species_id'],
+                    'date_admitted' => $data['date_admitted'],
+                    'location_found' => $data['location_found'] ?? '',
+                    'release_date' => $data['release_date'] ?? null,
+                    'patient_image' => !empty($data['user_uploaded_image']) ? 
+                        $data['patient_image'] : 
+                        $wpdb->get_var($wpdb->prepare(
+                            "SELECT image FROM {$wpdb->prefix}species WHERE id = %d",
+                            $data['species_id']
+                        ))
+                ],
+                ['patient_id' => $post_id],
+                ['%s', '%d', '%s', '%s', '%s', '%s'],
+                ['%d']
+            );
+            if ($result === false) {
+                throw new Exception('Failed to update patient meta: ' . $wpdb->last_error);
+            }
+        } else {
+            // Insert new Patient
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'patient_meta',
+                [
+                    'patient_id' => $post_id,
+                    'patient_case' => $data['patient_case'],
+                    'species_id' => $data['species_id'],
+                    'date_admitted' => $data['date_admitted'],
+                    'location_found' => $data['location_found'] ?? '',
+                    'release_date' => $data['release_date'] ?? null,
+                    'patient_image' => !empty($data['user_uploaded_image']) ? 
+                        $data['patient_image'] : 
+                        $wpdb->get_var($wpdb->prepare(
+                            "SELECT image FROM {$wpdb->prefix}species WHERE id = %d",
+                            $data['species_id']
+                        ))
+                ]
+            );
+            if ($result === false) {
+                throw new Exception('Failed to insert patient meta: ' . $wpdb->last_error);
+            }
         }
+
+        // Save conditions
+        if (!empty($data['patient_conditions'])) {
+            $wpdb->query($wpdb->prepare(
+                "DELETE FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", 
+                $post_id
+            ));
+            
+            foreach ($data['patient_conditions'] as $condition_id) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'patient_conditions',
+                    ['patient_id' => $post_id, 'condition_id' => $condition_id]
+                );
+                if ($result === false) {
+                    throw new Exception('Failed to save condition: ' . $wpdb->last_error);
+                }
+            }
+        }
+
+        // Save treatments
+        if (!empty($data['patient_treatments'])) {
+            $wpdb->query($wpdb->prepare(
+                "DELETE FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", 
+                $post_id
+            ));
+            
+            foreach ($data['patient_treatments'] as $treatment_id) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'patient_treatments',
+                    ['patient_id' => $post_id, 'treatment_id' => $treatment_id]
+                );
+                if ($result === false) {
+                    throw new Exception('Failed to save treatment: ' . $wpdb->last_error);
+                }
+            }
+        }
+
+        error_log('Successfully saved patient data');
+        return rest_ensure_response(['success' => true]);
+
+    } catch (Exception $e) {
+        error_log('Error saving patient data: ' . $e->getMessage());
+        return new WP_Error('save_failed', $e->getMessage(), ['status' => 500]);
     }
 }
-
-add_action('save_post', 'wildlink_save_meta_box');

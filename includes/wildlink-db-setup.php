@@ -5,8 +5,15 @@ function wildlink_create_tables() {
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
-    // Create species table
     $species_table = $wpdb->prefix . 'species';
+    $patient_meta_table = $wpdb->prefix . 'patient_meta';
+    $conditions_table = $wpdb->prefix . 'conditions';
+    $treatments_table = $wpdb->prefix . 'treatments';
+    $age_ranges_table = $wpdb->prefix . 'age_ranges';
+    $patient_conditions_table = $wpdb->prefix . 'patient_conditions';
+    $patient_treatments_table = $wpdb->prefix . 'patient_treatments';
+
+    // Create species table
     if ($wpdb->get_var("SHOW TABLES LIKE '$species_table'") != $species_table) {
         $species_sql = "CREATE TABLE $species_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -46,8 +53,29 @@ function wildlink_create_tables() {
         }
     }
 
+    // Create Patient_meta Table
+    if ($wpdb->get_var("SHOW TABLES LIKE '$patient_meta_table'") != $patient_meta_table) {
+        $patient_meta_sql = "CREATE TABLE $patient_meta_table (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            patient_id bigint(20) UNSIGNED NOT NULL,
+            patient_case varchar(255) NOT NULL,
+            species_id mediumint(9) NOT NULL,
+            date_admitted date NOT NULL,
+            location_found varchar(100),
+            release_date date,
+            patient_image varchar(255),
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            FOREIGN KEY (patient_id) REFERENCES {$wpdb->prefix}posts(ID) ON DELETE CASCADE,
+            FOREIGN KEY (species_id) REFERENCES {$species_table}(id),
+            INDEX patient_case_idx (patient_case),
+            INDEX date_admitted_idx (date_admitted)
+        ) $charset_collate;";
+        dbDelta($patient_meta_sql);
+    }
+
     // Create conditions table
-    $conditions_table = $wpdb->prefix . 'conditions';
     if ($wpdb->get_var("SHOW TABLES LIKE '$conditions_table'") != $conditions_table) {
         $conditions_sql = "CREATE TABLE $conditions_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -77,7 +105,6 @@ function wildlink_create_tables() {
     }
 
     // Create treatments table
-    $treatments_table = $wpdb->prefix . 'treatments';
     if ($wpdb->get_var("SHOW TABLES LIKE '$treatments_table'") != $treatments_table) {
         $treatments_sql = "CREATE TABLE $treatments_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -106,7 +133,6 @@ function wildlink_create_tables() {
     }
 
     // Create age_ranges table
-    $age_ranges_table = $wpdb->prefix . 'age_ranges';
     if ($wpdb->get_var("SHOW TABLES LIKE '$age_ranges_table'") != $age_ranges_table) {
         $age_ranges_sql = "CREATE TABLE $age_ranges_table (
             id int(11) NOT NULL AUTO_INCREMENT,
@@ -133,7 +159,6 @@ function wildlink_create_tables() {
     }
 
     // Create patient_conditions table
-    $patient_conditions_table = $wpdb->prefix . 'patient_conditions';
     if ($wpdb->get_var("SHOW TABLES LIKE '$patient_conditions_table'") != $patient_conditions_table) {
         $patient_conditions_sql = "CREATE TABLE $patient_conditions_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -149,7 +174,6 @@ function wildlink_create_tables() {
     }
 
     // Create patient_treatments table
-    $patient_treatments_table = $wpdb->prefix . 'patient_treatments';
     if ($wpdb->get_var("SHOW TABLES LIKE '$patient_treatments_table'") != $patient_treatments_table) {
         $patient_treatments_sql = "CREATE TABLE $patient_treatments_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
