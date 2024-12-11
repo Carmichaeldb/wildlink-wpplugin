@@ -41,18 +41,21 @@ add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
 
 // Enqueue admin scripts and styles
 function wildlink_enqueue_admin_scripts() {
-    wp_enqueue_media();
-    wp_enqueue_script('react', 'https://unpkg.com/react@18/umd/react.production.min.js', [], null, true);
-    wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js', [], null, true);
-    wp_enqueue_script('react-select', 'https://unpkg.com/react-select@5/dist/react-select.min.js', [], null, true);
-    wp_enqueue_style('react-select-css', 'https://unpkg.com/react-select@5/dist/react-select.css');
+    
     wp_enqueue_script(
         'wildlink-admin',
         plugins_url('/build/admin.js', __FILE__),
-        ['react', 'react-dom', 'react-select', 'wp-element'],
-        null,
+        ['react', 'react-dom', 'wp-element'],
+        filemtime(plugin_dir_path(__FILE__) . 'build/admin.js'),
         true
     );
+
+    wp_localize_script('wildlink-admin', 'wildlinkData', array(
+        'debug' => true,
+        'postId' => get_the_ID(),
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('wildlink_nonce')
+    ));
 }
 add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
 
