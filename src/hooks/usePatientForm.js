@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 export const usePatientForm = (postId) => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const STORY_CRITICAL_FIELDS = ['species_id', 'patient_conditions', 'patient_treatments'];
-  const [needsStoryUpdate, setNeedsStoryUpdate] = useState(false);
   const [previousCriticalValues, setPreviousCriticalValues] = useState({});
+  const [needsStoryUpdate, setNeedsStoryUpdate] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   /// FORM DATA MANAGEMENT ///
@@ -28,6 +28,12 @@ export const usePatientForm = (postId) => {
     treatments_options: []
   });
 
+  const currentCriticalValues = useMemo(() => ({
+    species_id: formData.species_id,
+    patient_conditions: formData.patient_conditions,
+    patient_treatments: formData.patient_treatments
+  }), [formData.species_id, formData.patient_conditions, formData.patient_treatments]);
+
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
@@ -36,7 +42,7 @@ export const usePatientForm = (postId) => {
           path: `/wildlink/v1/patient/${postId}`,
           method: 'GET'
         });
-        console.log('Response:', response);
+
         setFormData({
           patient_case: response.patient?.patient_case || '',
           species_id: response.patient?.species_id || '',
@@ -52,6 +58,7 @@ export const usePatientForm = (postId) => {
           response.patient?.patient_image !== response.species_options?.find(s => s.id === response.patient?.species_id)?.image,
           patient_story: response.patient?.patient_story || '',
         });
+
         setPreviousCriticalValues({
           species_id: response.patient?.species_id || '',
           patient_conditions: response.patient_conditions || [],
@@ -181,65 +188,74 @@ export const usePatientForm = (postId) => {
 
  /// STORY GENERATION AND MANAGEMENT LOGIC ///
 
+  const areArraysEqual = (a, b) => {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => item === b[index]);
+  };
+
   useEffect(() => {
-    if (formData.patient_story) {
-      const currentCriticalValues = {
-        species_id: formData.species_id,
-        patient_conditions: formData.patient_conditions,
-        patient_treatments: formData.patient_treatments
-      };
+    if (!formData.patient_story) return;
   
-      const hasChanges = STORY_CRITICAL_FIELDS.some(field => {
-        const prev = JSON.stringify(previousCriticalValues[field]);
-        const curr = JSON.stringify(currentCriticalValues[field]);
-        return prev !== curr;
-      });
-  
-      setNeedsStoryUpdate(hasChanges);
-      if (hasChanges) {
-        console.log('Story needs update due to critical field changes');
+    const hasChanges = STORY_CRITICAL_FIELDS.some(field => {
+      // Direct comparison for species_id
+      if (field === 'species_id') {
+        return previousCriticalValues[field] !== currentCriticalValues[field];
       }
-    }
-  }, [formData.species_id, formData.patient_conditions, formData.patient_treatments]);
+      // Array comparison for arrays of conditions and treatments
+      return !areArraysEqual(
+        previousCriticalValues[field], 
+        currentCriticalValues[field]
+      );
+    });
+  
+    setNeedsStoryUpdate(hasChanges);
+  }, [currentCriticalValues, previousCriticalValues]);
 
   const handleGenerateStory = async () => {
+    let timeoutId;
+  
     try {
       setIsGenerating(true);
-      let currentStory = "We are writing the story please wait...";
-      setFormData(prev => ({
-          ...prev,
-          patient_story: currentStory
-      }));
+      
+      // Single state update for loading
+      const loadingData = {
+        ...formData,
+        patient_story: "We are writing the story please wait..."
+      };
+      setFormData(loadingData);
   
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Cancelable timeout
+      await new Promise((resolve, reject) => {
+        timeoutId = setTimeout(resolve, 2000);
+      });
       // Test story
-      currentStory = `In the serene vicinity of Campbell River, an sub-adult bald eagle, once a sovereign of the skies, was discovered in a precarious state, burdened by the limitations imposed by a broken wing. Admitted to the wildlife rehabilitation hospital on March 28, 2024, under case number BAEA 083, this noble creature faced a challenging ordeal, contending not only with the physical hindrances of its injury but also with infection and emaciation, a trio of hardships that severely tested its fortitude. The rehabilitation staff, aware of the critical care required, promptly devised a comprehensive treatment regimen aimed at mending its body and spirit.
+      const TEST_STORY = `In the serene vicinity of Campbell River, an sub-adult bald eagle, once a sovereign of the skies, was discovered in a precarious state, burdened by the limitations imposed by a broken wing. Admitted to the wildlife rehabilitation hospital on March 28, 2024, under case number BAEA 083, this noble creature faced a challenging ordeal, contending not only with the physical hindrances of its injury but also with infection and emaciation, a trio of hardships that severely tested its fortitude. The rehabilitation staff, aware of the critical care required, promptly devised a comprehensive treatment regimen aimed at mending its body and spirit.
   
 The pathway to recovery for this majestic eagle was carefully charted by the dedicated rehabilitation staff, incorporating an array of interventions including physiotherapy to rehabilitate its weakened muscles, a wing wrap to support the healing process of the broken bone, and fluid therapy coupled with nutritional support to counteract its state of dehydration and malnutrition. Crucially, antibiotics were administered to combat the infection that plagued it, an essential component of the treatment plan that addressed the immediate threat to its well-being. Day by day, the eagle's resilience, bolstered by the unwavering commitment of the rehabilitation staff, signified a gradual return to its innate strength, signaling a hopeful journey towards its eventual reintegration into the wild, a testament to the collective efforts of those dedicated to the preservation of nature's magnificence.`;
-      await handleSubmit({
+      
+      const finalData = {
         ...formData,
-        patient_story: currentStory
-      });
+        patient_story: TEST_STORY
+      };
+      await handleSubmit(finalData);
 
-      setFormData(prev => ({
-        ...prev,
-        patient_story: currentStory
-      }));
-      console.log("Story generated and saved");
-      setPreviousCriticalValues({
-        species_id: formData.species_id,
-        patient_conditions: formData.patient_conditions,
-        patient_treatments: formData.patient_treatments
-      });
-      setNeedsStoryUpdate(false);
-    } catch (error) {
-      console.error('Failed to generate story:', error);
-      setError('Failed to generate story: ' + error.message);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+      setFormData(finalData);
+    setPreviousCriticalValues({
+      species_id: finalData.species_id,
+      patient_conditions: finalData.patient_conditions,
+      patient_treatments: finalData.patient_treatments
+    });
+    setNeedsStoryUpdate(false);
+
+  } catch (error) {
+    console.error('Failed to generate story:', error);
+    setError('Failed to generate story: ' + error.message);
+  } finally {
+    setIsGenerating(false);
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
 
   /// PATIENT FORM SUBMISSION ///
   const handleSubmit = async (data = formData) => {
