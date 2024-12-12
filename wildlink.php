@@ -157,7 +157,7 @@ function wildlink_get_patient_data($request) {
         'patient_treatments' => $treatments,
         'species_options' => $species,
         'conditions_options' => $conditions_list,
-        'treatments_options' => $treatments_list
+        'treatments_options' => $treatments_list,
     ]);
 }
 
@@ -202,7 +202,8 @@ function wildlink_save_patient_data($request) {
                         $wpdb->get_var($wpdb->prepare(
                             "SELECT image FROM {$wpdb->prefix}species WHERE id = %d",
                             $data['species_id']
-                        ))
+                        )),
+                    'patient_story' => $data['patient_story'],
                 ],
                 ['patient_id' => $post_id],
                 ['%s', '%d', '%s', '%s', '%s', '%s'],
@@ -227,7 +228,8 @@ function wildlink_save_patient_data($request) {
                         $wpdb->get_var($wpdb->prepare(
                             "SELECT image FROM {$wpdb->prefix}species WHERE id = %d",
                             $data['species_id']
-                        ))
+                        )),
+                    'patient_story' => $data['patient_story'],
                 ]
             );
             if ($result === false) {
