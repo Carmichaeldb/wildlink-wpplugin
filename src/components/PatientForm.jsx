@@ -9,6 +9,7 @@ const PatientForm = ({ postId }) => {
     loading,
     error,
     isGenerating,
+    hasNonCriticalChanges,
     needsStoryUpdate,
     handleInputChange,
     handleSelectChange,
@@ -16,6 +17,7 @@ const PatientForm = ({ postId }) => {
     getSelectedOptions,
     openMediaUploader,
     clearImage,
+    handleUpdateStory,
     handleGenerateStory,
     handleSubmit,
   } = usePatientForm(postId);
@@ -218,6 +220,23 @@ const PatientForm = ({ postId }) => {
           >
             {needsStoryUpdate ? 'Regenerate Story' : 'Generate Story'}
           </button>
+          {hasNonCriticalChanges ? (
+            <button
+              type="button"
+              onClick={handleUpdateStory}
+              disabled={isGenerating}
+              style={{
+                backgroundColor: '#FFA500',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                cursor: 'pointer'
+              }}
+            >
+              Update Story References
+            </button>
+          ) : null }
           </div>
           <textarea
             id="patient_story"

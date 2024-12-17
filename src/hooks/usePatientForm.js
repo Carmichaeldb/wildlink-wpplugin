@@ -5,9 +5,45 @@ export const usePatientForm = (postId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const STORY_CRITICAL_FIELDS = ['species_id', 'patient_conditions', 'patient_treatments'];
+  const NON_CRITICAL_FIELDS = ['patient_case', 'location_found', 'date_admitted'];
   const [previousCriticalValues, setPreviousCriticalValues] = useState({});
+  const [previousNonCriticalValues, setPreviousNonCriticalValues] = useState({});
   const [needsStoryUpdate, setNeedsStoryUpdate] = useState(false);
+  const [hasNonCriticalChanges, setHasNonCriticalChanges] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // const DATE_PATTERNS = [
+  //   {
+  //     regex: /(\d{1,2})\s+(March|Mar)(?:\s+\d{4})?/g,
+  //     format: (date, matchStr) => {
+  //       // Guard against undefined match
+  //       if (!matchStr) return '';
+        
+  //       const hasYear = matchStr.includes('2024');
+  //       const useShortMonth = matchStr.includes('Mar') && !matchStr.includes('March');
+  //       return new Intl.DateTimeFormat('en-US', {
+  //         day: 'numeric',
+  //         month: useShortMonth ? 'short' : 'long',
+  //         year: hasYear ? 'numeric' : undefined
+  //       }).format(date);
+  //     }
+  //   },
+  //   {
+  //     regex: /(March|Mar)\s+(\d{1,2})(?:,?\s+\d{4})?/g,
+  //     format: (date, matchStr) => {
+  //       if (!matchStr) return '';
+  
+  //       const hasYear = matchStr.includes('2024');
+  //       const useShortMonth = matchStr.includes('Mar') && !matchStr.includes('March');
+  //       return new Intl.DateTimeFormat('en-US', {
+  //         day: 'numeric',
+  //         month: useShortMonth ? 'short' : 'long',
+  //         year: hasYear ? 'numeric' : undefined,
+  //         monthFirst: true
+  //       }).format(date);
+  //     }
+  //   }
+  // ];
 
   /// FORM DATA MANAGEMENT ///
   const [formData, setFormData] = useState({
@@ -33,6 +69,12 @@ export const usePatientForm = (postId) => {
     patient_conditions: formData.patient_conditions,
     patient_treatments: formData.patient_treatments
   }), [formData.species_id, formData.patient_conditions, formData.patient_treatments]);
+
+  const currentNonCriticalValues = useMemo(() => ({
+    patient_case: formData.patient_case,
+    location_found: formData.location_found,
+    date_admitted: formData.date_admitted,
+  }), [formData.patient_case, formData.location_found, formData.date_admitted]);
 
   // Load initial data
   useEffect(() => {
@@ -63,6 +105,12 @@ export const usePatientForm = (postId) => {
           species_id: response.patient?.species_id || '',
           patient_conditions: response.patient_conditions || [],
           patient_treatments: response.patient_treatments || []
+        });
+
+        setPreviousNonCriticalValues({
+          patient_case: response.patient?.patient_case || '',
+          location_found: response.patient?.location_found || '',
+          date_admitted: response.patient?.date_admitted || '',
         });
 
         setOptions({
@@ -96,7 +144,7 @@ export const usePatientForm = (postId) => {
   
   //tracks input changes
   const handleInputChange = (e) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     if (name === 'is_released') {
       // When checkbox is unchecked, clear release date
       setFormData(prevData => ({
@@ -212,6 +260,92 @@ export const usePatientForm = (postId) => {
     setNeedsStoryUpdate(hasChanges);
   }, [currentCriticalValues, previousCriticalValues]);
 
+  useEffect(() => {
+    if (!formData.patient_story) return;
+  
+    const hasChanges = NON_CRITICAL_FIELDS.some(field => 
+      previousNonCriticalValues[field] !== currentNonCriticalValues[field]
+    );
+  
+    setHasNonCriticalChanges(hasChanges);
+  }, [currentNonCriticalValues, previousNonCriticalValues]);
+
+  const escapeRegExp = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  };
+
+  const handleUpdateStory = () => {
+  
+    const meta = currentNonCriticalValues; // Current values to replace with
+    const { patient_story } = formData;
+  
+    if (!patient_story) {
+      console.error("No story to update.");
+      return;
+    }
+  
+    let updatedStory = patient_story;
+  
+    Object.entries(meta).forEach(([key, newValue]) => {
+      const oldValue = previousNonCriticalValues[key]; // Get the previous value for this field
+  
+      if (key === "date_admitted" && newValue && oldValue) {
+        // Parse new date components (YYYY-MM-DD)
+        const [newYear, newMonth, newDay] = newValue.split("-").map(Number);
+        const monthNames = {
+          long: [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ],
+          short: [
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+          ]
+        };
+        const datePattern = {
+          regex: /(?:(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}))(?:,?\s+\d{4})?|(?:(\d{4})\/(\d{2})\/(\d{2}))|(?:(\d{1,2})\/(\d{1,2})(?:\/\d{4})?)/g,
+          format: (match, dayFirst, monthFirst, monthSecond, daySecond, fullYear, fullMonth, fullDay, numericDay, numericMonth) => {
+            // Handle text month formats
+            if (monthFirst || monthSecond) {
+              const oldMonth = monthFirst || monthSecond;
+              const isShortMonth = oldMonth.length <= 3;
+              const newMonthName = isShortMonth ? 
+                monthNames.short[newMonth - 1] : 
+                monthNames.long[newMonth - 1];
+              const hasYear = match.includes(oldValue.split("-")[0]);
+              
+              return dayFirst ? 
+                `${newDay} ${newMonthName}${hasYear ? ` ${newYear}` : ''}` :
+                `${newMonthName} ${newDay}${hasYear ? `, ${newYear}` : ''}`;
+            }
+            else {
+              return `${String(newDay).padStart(2, '0')}/${String(newMonth).padStart(2, '0')}/${newYear}`;
+            }
+          }
+        };
+      
+        updatedStory = updatedStory.replace(datePattern.regex, datePattern.format);
+        
+      } else if (newValue && oldValue && newValue !== oldValue) {
+        // Create a regex to match the old value (case-insensitive, exact match)
+        const regex = new RegExp(escapeRegExp(oldValue), "gi");
+        // Replace old value with new value in the story
+        updatedStory = updatedStory.replace(regex, newValue);
+      } else {
+        console.log(`No change for "${key}": "${oldValue}" remains unchanged.`);
+      }
+    });
+
+    setFormData((prevData) => ({
+      ...prevData,
+      patient_story: updatedStory,
+    }));
+
+    setPreviousNonCriticalValues(currentNonCriticalValues);
+    setHasNonCriticalChanges(false);
+  };
+  
+
   const handleGenerateStory = async () => {
     let timeoutId;
   
@@ -282,12 +416,14 @@ The pathway to recovery for this majestic eagle was carefully charted by the ded
     error,
     isGenerating,
     needsStoryUpdate,
+    hasNonCriticalChanges,
     handleInputChange,
     handleSelectChange,
     handleMultiSelectChange,
     getSelectedOptions,
     openMediaUploader,
     clearImage,
+    handleUpdateStory,
     handleGenerateStory,
     handleSubmit
   };
