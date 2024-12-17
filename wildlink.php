@@ -39,8 +39,43 @@ function wildlink_enqueue_scripts() {
 }
 add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
 
+// Add admin menu
+function wildlink_admin_menu() {
+    add_menu_page(
+        'Patients',
+        'Patients',
+        'manage_options',
+        'wildlink-patients',
+        'wildlink_patients_page',
+        'dashicons-clipboard',
+        30
+    );
+
+    add_submenu_page(
+        'wildlink-patients',
+        'Add New Patient',
+        'Add New',
+        'manage_options',
+        'wildlink-add-patient',
+        'wildlink_add_patient_page'
+    );
+}
+add_action('admin_menu', 'wildlink_admin_menu');
+
+// Admin page handlers
+function wildlink_patients_page() {
+    echo '<div id="wildlink-admin-root"></div>';
+}
+
+function wildlink_add_patient_page() {
+    echo '<div id="patient-form-root"></div>';
+}
+
 // Enqueue admin scripts and styles
-function wildlink_enqueue_admin_scripts() {
+function wildlink_enqueue_admin_scripts($hook) {
+    if (!strpos($hook, 'wildlink')) {
+        return;
+    }
     
     wp_enqueue_script(
         'wildlink-admin',
@@ -52,66 +87,40 @@ function wildlink_enqueue_admin_scripts() {
 
     wp_localize_script('wildlink-admin', 'wildlinkData', array(
         'debug' => true,
-        'postId' => get_the_ID(),
         'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('wildlink_nonce')
+        'nonce' => wp_create_nonce('wildlink_nonce'),
+        'adminPage' => $hook
     ));
 }
 add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
 
-// Register custom post type
-function wildlink_register_post_type() {
-    register_post_type('patient', [
-        'labels' => [
-            'name' => __('Patients'),
-            'singular_name' => __('Patient'),
-        ],
-        'public' => true,
-        'has_archive' => true,
-        'supports' => ['title', 'editor'],
-        'show_in_rest' => true,
-    ]);
-}
-add_action('init', 'wildlink_register_post_type');
-
 // Custom REST endpoint
 add_action('rest_api_init', function() {
-    register_rest_route('wildlink/v1', '/patient/(?P<id>\d+)', [
-        [
-            'methods' => 'POST',
-            'callback' => 'wildlink_save_patient_data',
-            'permission_callback' => function() {
-                return current_user_can('edit_posts');
-            }
-        ],
-        [
-            'methods' => 'GET',
-            'callback' => 'wildlink_get_patient_data',
-            'permission_callback' => function() {
-                return current_user_can('edit_posts');
-            }
-        ]
+    register_rest_route('wildlink/v1', '/patients', [
+        'methods' => 'GET',
+        'callback' => 'wildlink_get_patients_list',
+        'permission_callback' => '__return_true'
     ]);
+
+    register_rest_route('wildlink/v1', '/patient/(?P<id>\d+)', [
+        'methods' => ['GET', 'POST', 'DELETE'],
+        'callback' => 'wildlink_get_patient_data',
+        'permission_callback' => '__return_true'
+    ]);
+    
 });
 
-function wildlink_add_meta_box() {
-    add_meta_box(
-        'wildlink_patient_form',
-        'Patient Details',
-        'wildlink_render_form',
-        'patient',
-        'normal',
-        'high'
-    );
+function wildlink_get_patients_list() {
+    global $wpdb;
+    
+    $patients = $wpdb->get_results("
+        SELECT pm.*, s.common_name as species
+        FROM {$wpdb->prefix}patient_meta pm
+        LEFT JOIN {$wpdb->prefix}species s ON pm.species_id = s.id
+        ORDER BY pm.date_admitted DESC
+    ");
 
-    // Remove default editor
-    remove_post_type_support('patient', 'editor');
-}
-add_action('add_meta_boxes', 'wildlink_add_meta_box');
-
-function wildlink_render_form($post) {
-    // Container for React to mount
-    echo '<div id="patient-form-root" data-post-id="' . esc_attr($post->ID) . '"></div>';
+    return rest_ensure_response($patients);
 }
 
 function wildlink_get_patient_data($request) {
@@ -281,3 +290,32 @@ function wildlink_save_patient_data($request) {
         return new WP_Error('save_failed', $e->getMessage(), ['status' => 500]);
     }
 }
+
+// Delete patient data
+function wildlink_handle_patient($request) {
+    if ($request->get_method() === 'DELETE') {
+        global $wpdb;
+        $patient_id = $request['id'];
+
+        // Start transaction
+        $wpdb->query('START TRANSACTION');
+        try {
+            // Delete related records first
+            $wpdb->delete($wpdb->prefix . 'patient_conditions', ['patient_id' => $patient_id]);
+            $wpdb->delete($wpdb->prefix . 'patient_treatments', ['patient_id' => $patient_id]);
+            
+            // Delete patient
+            $result = $wpdb->delete($wpdb->prefix . 'patient_meta', ['id' => $patient_id]);
+            
+            if ($result === false) {
+                throw new Exception('Failed to delete patient');
+            }
+            
+            $wpdb->query('COMMIT');
+            return rest_ensure_response(['success' => true]);
+            
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            return new WP_Error('delete_failed', $e->getMessage());
+        }
+    }
