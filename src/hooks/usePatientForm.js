@@ -8,42 +8,9 @@ export const usePatientForm = (postId) => {
   const NON_CRITICAL_FIELDS = ['patient_case', 'location_found', 'date_admitted'];
   const [previousCriticalValues, setPreviousCriticalValues] = useState({});
   const [previousNonCriticalValues, setPreviousNonCriticalValues] = useState({});
-  const [needsStoryUpdate, setNeedsStoryUpdate] = useState(false);
-  const [hasNonCriticalChanges, setHasNonCriticalChanges] = useState(false);
+  const [hasCriticalChanges, setHasCriticalChanges] = useState(false);
+  const [hasNonCriticalChanges, setHasNonCriticalChanges] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // const DATE_PATTERNS = [
-  //   {
-  //     regex: /(\d{1,2})\s+(March|Mar)(?:\s+\d{4})?/g,
-  //     format: (date, matchStr) => {
-  //       // Guard against undefined match
-  //       if (!matchStr) return '';
-        
-  //       const hasYear = matchStr.includes('2024');
-  //       const useShortMonth = matchStr.includes('Mar') && !matchStr.includes('March');
-  //       return new Intl.DateTimeFormat('en-US', {
-  //         day: 'numeric',
-  //         month: useShortMonth ? 'short' : 'long',
-  //         year: hasYear ? 'numeric' : undefined
-  //       }).format(date);
-  //     }
-  //   },
-  //   {
-  //     regex: /(March|Mar)\s+(\d{1,2})(?:,?\s+\d{4})?/g,
-  //     format: (date, matchStr) => {
-  //       if (!matchStr) return '';
-  
-  //       const hasYear = matchStr.includes('2024');
-  //       const useShortMonth = matchStr.includes('Mar') && !matchStr.includes('March');
-  //       return new Intl.DateTimeFormat('en-US', {
-  //         day: 'numeric',
-  //         month: useShortMonth ? 'short' : 'long',
-  //         year: hasYear ? 'numeric' : undefined,
-  //         monthFirst: true
-  //       }).format(date);
-  //     }
-  //   }
-  // ];
 
   /// FORM DATA MANAGEMENT ///
   const [formData, setFormData] = useState({
@@ -242,10 +209,22 @@ export const usePatientForm = (postId) => {
     return a.every((item, index) => item === b[index]);
   };
 
+  const getWarningMessageField = (field) => {
+    const messageFields = {
+      'species_id': 'Species',
+      'patient_conditions': 'Conditions',
+      'patient_treatments': 'Treatments',
+      'patient_case': 'Patient Case',
+      'location_found': 'Location Found',
+      'date_admitted': 'Date Admitted'
+    }
+    return messageFields[field] || field;
+  };
+
   useEffect(() => {
     if (!formData.patient_story) return;
   
-    const hasChanges = STORY_CRITICAL_FIELDS.some(field => {
+    const hasChanges = STORY_CRITICAL_FIELDS.filter(field => {
       // Direct comparison for species_id
       if (field === 'species_id') {
         return previousCriticalValues[field] !== currentCriticalValues[field];
@@ -255,19 +234,21 @@ export const usePatientForm = (postId) => {
         previousCriticalValues[field], 
         currentCriticalValues[field]
       );
-    });
+    })
+    .map(field => getWarningMessageField(field));
   
-    setNeedsStoryUpdate(hasChanges);
+    setHasCriticalChanges(hasChanges);
   }, [currentCriticalValues, previousCriticalValues]);
 
   useEffect(() => {
     if (!formData.patient_story) return;
   
-    const hasChanges = NON_CRITICAL_FIELDS.some(field => 
-      previousNonCriticalValues[field] !== currentNonCriticalValues[field]
-    );
+    const hasChanges = NON_CRITICAL_FIELDS
+    .filter(field => previousNonCriticalValues[field] !== currentNonCriticalValues[field])
+    .map(field => getWarningMessageField(field));
   
     setHasNonCriticalChanges(hasChanges);
+    console.log(hasChanges);
   }, [currentNonCriticalValues, previousNonCriticalValues]);
 
   const escapeRegExp = (string) => {
@@ -304,8 +285,7 @@ export const usePatientForm = (postId) => {
         };
         const datePattern = {
           regex: /(?:(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}))(?:,?\s+\d{4})?|(?:(\d{4})\/(\d{2})\/(\d{2}))|(?:(\d{1,2})\/(\d{1,2})(?:\/\d{4})?)/g,
-          format: (match, dayFirst, monthFirst, monthSecond, daySecond, fullYear, fullMonth, fullDay, numericDay, numericMonth) => {
-            // Handle text month formats
+          format: (match, dayFirst, monthFirst, monthSecond) => {
             if (monthFirst || monthSecond) {
               const oldMonth = monthFirst || monthSecond;
               const isShortMonth = oldMonth.length <= 3;
@@ -342,7 +322,7 @@ export const usePatientForm = (postId) => {
     }));
 
     setPreviousNonCriticalValues(currentNonCriticalValues);
-    setHasNonCriticalChanges(false);
+    setHasNonCriticalChanges([]);
   };
   
 
@@ -380,7 +360,7 @@ The pathway to recovery for this majestic eagle was carefully charted by the ded
       patient_conditions: finalData.patient_conditions,
       patient_treatments: finalData.patient_treatments
     });
-    setNeedsStoryUpdate(false);
+    setHasCriticalChanges(false);
 
   } catch (error) {
     console.error('Failed to generate story:', error);
@@ -415,7 +395,7 @@ The pathway to recovery for this majestic eagle was carefully charted by the ded
     loading,
     error,
     isGenerating,
-    needsStoryUpdate,
+    hasCriticalChanges,
     hasNonCriticalChanges,
     handleInputChange,
     handleSelectChange,

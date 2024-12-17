@@ -10,7 +10,7 @@ const PatientForm = ({ postId }) => {
     error,
     isGenerating,
     hasNonCriticalChanges,
-    needsStoryUpdate,
+    hasCriticalChanges,
     handleInputChange,
     handleSelectChange,
     handleMultiSelectChange,
@@ -204,9 +204,9 @@ const PatientForm = ({ postId }) => {
         <div className="form-group">
           <label htmlFor="patient_story">Patient Story</label>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-          {needsStoryUpdate && formData.patient_story && (
+          {hasCriticalChanges && formData.patient_story && (
           <div className="story-warning" style={{ backgroundColor: '#ff0000', marginTop: '10px' }}>
-            Story may need to be regenerated due to changes in patient details
+            Story may need to be regenerated due to changes in {hasCriticalChanges.join(', ')}.
           </div>
           )}
 
@@ -215,12 +215,13 @@ const PatientForm = ({ postId }) => {
             onClick={handleGenerateStory}
             disabled={isGenerating}
             style={{
-              backgroundColor: needsStoryUpdate ? '#ff0000' : '#4CAF50'
+              backgroundColor: hasCriticalChanges ? '#ff0000' : '#4CAF50'
             }}
           >
-            {needsStoryUpdate ? 'Regenerate Story' : 'Generate Story'}
+            {hasCriticalChanges ? 'Regenerate Story' : 'Generate Story'}
           </button>
-          {hasNonCriticalChanges ? (
+          {hasNonCriticalChanges.length > 0 && (
+            <div> Story references may need to be updated due to changes in {hasNonCriticalChanges.join(', ')}.
             <button
               type="button"
               onClick={handleUpdateStory}
@@ -235,8 +236,8 @@ const PatientForm = ({ postId }) => {
               }}
             >
               Update Story References
-            </button>
-          ) : null }
+            </button> </div>
+          )}
           </div>
           <textarea
             id="patient_story"
