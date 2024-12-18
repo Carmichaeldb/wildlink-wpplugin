@@ -5,13 +5,14 @@ module.exports = {
   mode: 'development',
   entry: {
     admin: "./src/admin.js",
+    index: "./src/index.js" 
   },
   output: {
     path: path.resolve(__dirname, "build"),
     filename: "[name].js",
     library: {
       type: 'window',
-      name: 'admin',
+      name: '[name]',
       export: 'default',
       umdNamedDefine: true
     }
@@ -19,10 +20,14 @@ module.exports = {
   externals: {
     'react': 'React',
     'react-dom': 'ReactDOM',
-    '@wordpress/element': 'wp.element'
+    '@wordpress/element': 'wp.element',
+    '@wordpress/components': 'wp.components',
+    '@wordpress/api-fetch': 'wp.apiFetch'
   },
   plugins: [
-    new MiniCssExtractPlugin()
+    new MiniCssExtractPlugin({
+      filename: '[name].css'
+    })
   ],
   module: {
     rules: [

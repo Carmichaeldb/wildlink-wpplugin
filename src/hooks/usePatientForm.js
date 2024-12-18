@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-export const usePatientForm = (postId) => {
+export const usePatientForm = (patientId) => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,7 +48,7 @@ export const usePatientForm = (postId) => {
     const loadData = async () => {
       try {
         const response = await wp.apiFetch({
-          path: `/wildlink/v1/patient/${postId}`,
+          path: `/wildlink/v1/patient/${patientId}`,
           method: 'GET'
         });
 
@@ -91,10 +91,10 @@ export const usePatientForm = (postId) => {
         setLoading(false);
       }
     };
-    if (postId) {
+    if (patientId) {
       loadData();
     }
-  }, [postId]);
+  }, [patientId]);
 
   // Set default image when species changes if no image is uploaded
   useEffect(() => {
@@ -376,7 +376,7 @@ The pathway to recovery for this majestic eagle was carefully charted by the ded
     console.log("submitting...");
     try {
       await wp.apiFetch({
-        path: `/wildlink/v1/patient/${postId}`,
+        path: `/wildlink/v1/patient/${patientId}`,
         method: 'POST',
         data: {
           ...data,

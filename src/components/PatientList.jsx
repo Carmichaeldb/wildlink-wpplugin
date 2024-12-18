@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import '../styles/admin.css';
 
 const PatientList = () => {
   const [patients, setPatients] = useState([]);
@@ -10,11 +11,16 @@ const PatientList = () => {
   }, []);
 
   const fetchPatients = async () => {
+    try {
     const response = await wp.apiFetch({
       path: '/wildlink/v1/patients'
     });
     setPatients(response);
+    } catch (err) {
+    setError(err.message);
+    } finally {
     setLoading(false);
+    }
   };
 
   const filteredPatients = patients.filter(patient => 

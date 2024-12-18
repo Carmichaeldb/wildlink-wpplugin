@@ -1,0 +1,44 @@
+/* Table Styles */
+.wp-list-table .row-actions {
+  position: relative;
+  left: 0;
+  padding: 2px 0;
+  opacity: 1;
+}
+
+.wp-list-table .row-actions span {
+  padding: 2px 2px;
+  color: #2271b1;
+}
+
+.wp-list-table .row-actions span.delete a {
+  color: #b32d2e;
+}
+
+/* Tab Navigation */
+.subsubsub {
+  margin: 12px 0;
+  list-style: none;
+}
+
+.subsubsub li {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* Count Badges */
+.count {
+  display: inline-block;
+  padding: 0 8px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #f0f0f1;
+  color: #50575e;
+  font-size: 11px;
+  line-height: 24px;
+  text-align: center;
+  vertical-align: middle;
+}

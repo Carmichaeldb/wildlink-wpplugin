@@ -68,7 +68,15 @@ function wildlink_patients_page() {
 }
 
 function wildlink_add_patient_page() {
+    // Add debug logging
+    error_log('Rendering patient form page');
+    
+    // Add wrapper div for WP admin
+    echo '<div class="wrap">';
+    echo '<h1 class="wp-heading-inline">Add/Edit Patient</h1>';
+    // Add form container
     echo '<div id="patient-form-root"></div>';
+    echo '</div>';
 }
 
 // Enqueue admin scripts and styles
@@ -80,9 +88,16 @@ function wildlink_enqueue_admin_scripts($hook) {
     wp_enqueue_script(
         'wildlink-admin',
         plugins_url('/build/admin.js', __FILE__),
-        ['react', 'react-dom', 'wp-element'],
+        ['react', 'react-dom', 'wp-element', 'wp-api-fetch'],
         filemtime(plugin_dir_path(__FILE__) . 'build/admin.js'),
         true
+    );
+    
+    wp_enqueue_style(
+        'wildlink-admin-style',
+        plugins_url('/build/admin.css', __FILE__),
+        [],
+        filemtime(plugin_dir_path(__FILE__) . 'build/admin.css')
     );
 
     wp_localize_script('wildlink-admin', 'wildlinkData', array(
@@ -125,24 +140,24 @@ function wildlink_get_patients_list() {
 
 function wildlink_get_patient_data($request) {
     global $wpdb;
-    $post_id = $request['id'];
+    $id = $request['id'];
     
     // Get patient meta
     $patient_meta = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}patient_meta WHERE patient_id = %d",
-        $post_id
+        "SELECT * FROM {$wpdb->prefix}patient_meta WHERE id = %d",
+        $id
     ));
 
     // Get patient conditions
     $conditions = $wpdb->get_col($wpdb->prepare(
         "SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d",
-        $post_id
+        $patient_meta->patient_id
     ));
 
     // Get patient treatments 
     $treatments = $wpdb->get_col($wpdb->prepare(
         "SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d",
-        $post_id
+        $patient_meta->patient_id
     ));
 
     // Get species list
@@ -174,11 +189,11 @@ function wildlink_get_patient_data($request) {
 function wildlink_save_patient_data($request) {
     global $wpdb;
     
-    $post_id = $request['id'];
+    $patient_id = $request['id'];
     $data = $request->get_json_params();
 
     // logging to verify data while testing
-    error_log('Saving patient data for ID: ' . $post_id);
+    error_log('Saving patient data for ID: ' . $patient_id);
     error_log('Received data: ' . print_r($data, true));
     
     try {
@@ -193,7 +208,7 @@ function wildlink_save_patient_data($request) {
         // Save to patient_meta
         $exists = $wpdb->get_var($wpdb->prepare(
             "SELECT id FROM {$wpdb->prefix}patient_meta WHERE patient_id = %d",
-            $post_id
+            $patient_id
         ));
         
         if ($exists) {
@@ -214,7 +229,7 @@ function wildlink_save_patient_data($request) {
                         )),
                     'patient_story' => $data['patient_story'],
                 ],
-                ['patient_id' => $post_id],
+                ['patient_id' => $patient_id],
                 ['%s', '%d', '%s', '%s', '%s', '%s'],
                 ['%d']
             );
@@ -226,7 +241,7 @@ function wildlink_save_patient_data($request) {
             $result = $wpdb->insert(
                 $wpdb->prefix . 'patient_meta',
                 [
-                    'patient_id' => $post_id,
+                    'patient_id' => $patient_id,
                     'patient_case' => $data['patient_case'],
                     'species_id' => $data['species_id'],
                     'date_admitted' => $data['date_admitted'],
@@ -250,13 +265,13 @@ function wildlink_save_patient_data($request) {
         if (!empty($data['patient_conditions'])) {
             $wpdb->query($wpdb->prepare(
                 "DELETE FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d", 
-                $post_id
+                $patient_id
             ));
             
             foreach ($data['patient_conditions'] as $condition_id) {
                 $result = $wpdb->insert(
                     $wpdb->prefix . 'patient_conditions',
-                    ['patient_id' => $post_id, 'condition_id' => $condition_id]
+                    ['patient_id' => $patient_id, 'condition_id' => $condition_id]
                 );
                 if ($result === false) {
                     throw new Exception('Failed to save condition: ' . $wpdb->last_error);
@@ -268,13 +283,13 @@ function wildlink_save_patient_data($request) {
         if (!empty($data['patient_treatments'])) {
             $wpdb->query($wpdb->prepare(
                 "DELETE FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d", 
-                $post_id
+                $patient_id
             ));
             
             foreach ($data['patient_treatments'] as $treatment_id) {
                 $result = $wpdb->insert(
                     $wpdb->prefix . 'patient_treatments',
-                    ['patient_id' => $post_id, 'treatment_id' => $treatment_id]
+                    ['patient_id' => $patient_id, 'treatment_id' => $treatment_id]
                 );
                 if ($result === false) {
                     throw new Exception('Failed to save treatment: ' . $wpdb->last_error);
@@ -319,3 +334,4 @@ function wildlink_handle_patient($request) {
             return new WP_Error('delete_failed', $e->getMessage());
         }
     }
+}

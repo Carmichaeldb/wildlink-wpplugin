@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import Select from "react-select";
 import { usePatientForm } from "../hooks/usePatientForm";
 
-const PatientForm = ({ postId }) => {
+const PatientForm = ({ patientId }) => {
   const {
     formData,
     options,
@@ -20,7 +20,7 @@ const PatientForm = ({ postId }) => {
     handleUpdateStory,
     handleGenerateStory,
     handleSubmit,
-  } = usePatientForm(postId);
+  } = usePatientForm(patientId);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -204,7 +204,7 @@ const PatientForm = ({ postId }) => {
         <div className="form-group">
           <label htmlFor="patient_story">Patient Story</label>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-          {hasCriticalChanges && formData.patient_story && (
+          {hasCriticalChanges.length > 0 && formData.patient_story && (
           <div className="story-warning" style={{ backgroundColor: '#ff0000', marginTop: '10px' }}>
             Story may need to be regenerated due to changes in {hasCriticalChanges.join(', ')}.
           </div>
@@ -215,10 +215,10 @@ const PatientForm = ({ postId }) => {
             onClick={handleGenerateStory}
             disabled={isGenerating}
             style={{
-              backgroundColor: hasCriticalChanges ? '#ff0000' : '#4CAF50'
+              backgroundColor: hasCriticalChanges.length > 0 ? '#ff0000' : '#4CAF50'
             }}
           >
-            {hasCriticalChanges ? 'Regenerate Story' : 'Generate Story'}
+            {hasCriticalChanges.length > 0 ? 'Regenerate Story' : 'Generate Story'}
           </button>
           {hasNonCriticalChanges.length > 0 && (
             <div> Story references may need to be updated due to changes in {hasNonCriticalChanges.join(', ')}.
