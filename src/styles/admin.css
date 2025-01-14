@@ -42,3 +42,100 @@
   text-align: center;
   vertical-align: middle;
 }
+
+/* Overlay background */
+.patient-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 160000;
+}
+
+.wp-block-wildlink-modal {
+  background-color: #fff;
+  color: #000;
+  font-family: Arial, sans-serif;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  border-radius: 3px;
+  padding: 20px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.patient-modal a {
+  color: var(--wp--preset--color--primary, #0073aa);
+}
+
+.patient-modal a:hover {
+  color: var(--wp--preset--color--secondary, #006799);
+}
+
+/* Modal header */
+.patient-modal-header {
+  margin-bottom: 20px;
+}
+
+/* Patient info grid */
+.patient-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 30px;
+  min-height: 250px;
+}
+
+.patient-details {
+  flex: 3;
+  min-width: 0;
+  padding-right: 20px;
+}
+
+.patient-details h2 {
+  font-size: calc(var(--wp-admin-theme-content-font-size, 1em) * 1.4);
+  margin-bottom: 1em;
+}
+
+.patient-details p {
+  font-size: calc(var(--wp-admin-theme-content-font-size, 1em) * 1.2);
+  line-height: 1.6;
+  margin-bottom: 0.8em;
+}
+
+.patient-image {
+  flex: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 300px;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+}
+
+.patient-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 3px;
+}
+
+/* Release status */
+.patient-release-status {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* Patient story */
+.patient-story {
+  margin-top: 20px;
+  white-space: pre-wrap;
+  text-align: justify;
+}

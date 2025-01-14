@@ -57,7 +57,7 @@ function wildlink_create_tables() {
     if ($wpdb->get_var("SHOW TABLES LIKE '$patient_meta_table'") != $patient_meta_table) {
         $patient_meta_sql = "CREATE TABLE $patient_meta_table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
-            patient_id bigint(20) UNSIGNED NOT NULL,
+            patient_id varchar(5) UNSIGNED NOT NULL,
             patient_case varchar(255) NOT NULL,
             species_id mediumint(9) NOT NULL,
             date_admitted date NOT NULL,

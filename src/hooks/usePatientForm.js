@@ -47,53 +47,60 @@ export const usePatientForm = (patientId) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await wp.apiFetch({
-          path: `/wildlink/v1/patient/${patientId}`,
-          method: 'GET'
-        });
-
-        setFormData({
-          patient_case: response.patient?.patient_case || '',
-          species_id: response.patient?.species_id || '',
-          date_admitted: response.patient?.date_admitted || '',
-          location_found: response.patient?.location_found || '',
-          is_released: response.patient?.release_date && response.patient?.release_date !== '0000-00-00',
-          release_date: response.patient?.release_date || '',
-          patient_image: response.patient?.patient_image || '',
-          patient_conditions: response.patient_conditions || [],
-          patient_treatments: response.patient_treatments || [],
-          // Check if patient image differs from species image
-          user_uploaded_image: response.patient?.patient_image && 
-          response.patient?.patient_image !== response.species_options?.find(s => s.id === response.patient?.species_id)?.image,
-          patient_story: response.patient?.patient_story || '',
-        });
-
-        setPreviousCriticalValues({
-          species_id: response.patient?.species_id || '',
-          patient_conditions: response.patient_conditions || [],
-          patient_treatments: response.patient_treatments || []
-        });
-
-        setPreviousNonCriticalValues({
-          patient_case: response.patient?.patient_case || '',
-          location_found: response.patient?.location_found || '',
-          date_admitted: response.patient?.date_admitted || '',
+        const optionsResponse = await wp.apiFetch({
+          path: '/wildlink/v1/options'
         });
 
         setOptions({
-          species_options: response.species_options || [],
-          conditions_options: response.conditions_options || [],
-          treatments_options: response.treatments_options || []
+          species_options: optionsResponse.species_options || [],
+          conditions_options: optionsResponse.conditions_options || [],
+          treatments_options: optionsResponse.treatments_options || []
         });
+        if (patientId) {
+          const patientResponse = await wp.apiFetch({
+            path: `/wildlink/v1/patient/${patientId}`,
+          });
+
+          if(patientResponse.patient) {
+            const speciesImage = optionsResponse.species_options?.find(
+              s => s.id === patientResponse.patient?.species_id
+            )?.image;
+            setFormData({
+              patient_case: patientResponse.patient?.patient_case || '',
+              species_id: patientResponse.patient?.species_id || '',
+              date_admitted: patientResponse.patient?.date_admitted || '',
+              location_found: patientResponse.patient?.location_found || '',
+              is_released: patientResponse.patient?.release_date && patientResponse.patient?.release_date !== '0000-00-00',
+              release_date: patientResponse.patient?.release_date || '',
+              patient_image: patientResponse.patient?.patient_image || '',
+              patient_conditions: patientResponse.patient_conditions || [],
+              patient_treatments: patientResponse.patient_treatments || [],
+              // Check if patient image differs from species image
+              user_uploaded_image: patientResponse.patient?.patient_image && 
+              patientResponse.patient?.patient_image !== speciesImage,
+              patient_story: patientResponse.patient?.patient_story || '',
+            });
+    
+            setPreviousCriticalValues({
+              species_id: patientResponse.patient?.species_id || '',
+              patient_conditions: patientResponse.patient_conditions || [],
+              patient_treatments: patientResponse.patient_treatments || []
+            });
+    
+            setPreviousNonCriticalValues({
+              patient_case: patientResponse.patient?.patient_case || '',
+              location_found: patientResponse.patient?.location_found || '',
+              date_admitted: patientResponse.patient?.date_admitted || '',
+            });
+          }
+        }
       } catch (err) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-    if (patientId) {
-      loadData();
-    }
+    loadData();
   }, [patientId]);
 
   // Set default image when species changes if no image is uploaded
@@ -248,7 +255,6 @@ export const usePatientForm = (patientId) => {
     .map(field => getWarningMessageField(field));
   
     setHasNonCriticalChanges(hasChanges);
-    console.log(hasChanges);
   }, [currentNonCriticalValues, previousNonCriticalValues]);
 
   const escapeRegExp = (string) => {
@@ -330,6 +336,7 @@ export const usePatientForm = (patientId) => {
     let timeoutId;
   
     try {
+      console.log("1. Starting generation...");
       setIsGenerating(true);
       
       // Single state update for loading
@@ -337,21 +344,25 @@ export const usePatientForm = (patientId) => {
         ...formData,
         patient_story: "We are writing the story please wait..."
       };
+      console.log("2. Loading data:", loadingData);
       setFormData(loadingData);
   
       // Cancelable timeout
       await new Promise((resolve, reject) => {
         timeoutId = setTimeout(resolve, 2000);
+        console.log("3. Finish timeout");
       });
+      console.log("4. Creating test story");
       // Test story
       const TEST_STORY = `In the serene vicinity of Campbell River, an sub-adult bald eagle, once a sovereign of the skies, was discovered in a precarious state, burdened by the limitations imposed by a broken wing. Admitted to the wildlife rehabilitation hospital on March 28, 2024, under case number BAEA 083, this noble creature faced a challenging ordeal, contending not only with the physical hindrances of its injury but also with infection and emaciation, a trio of hardships that severely tested its fortitude. The rehabilitation staff, aware of the critical care required, promptly devised a comprehensive treatment regimen aimed at mending its body and spirit.
   
 The pathway to recovery for this majestic eagle was carefully charted by the dedicated rehabilitation staff, incorporating an array of interventions including physiotherapy to rehabilitate its weakened muscles, a wing wrap to support the healing process of the broken bone, and fluid therapy coupled with nutritional support to counteract its state of dehydration and malnutrition. Crucially, antibiotics were administered to combat the infection that plagued it, an essential component of the treatment plan that addressed the immediate threat to its well-being. Day by day, the eagle's resilience, bolstered by the unwavering commitment of the rehabilitation staff, signified a gradual return to its innate strength, signaling a hopeful journey towards its eventual reintegration into the wild, a testament to the collective efforts of those dedicated to the preservation of nature's magnificence.`;
-      
+      console.log("5. Creating final data");
       const finalData = {
         ...formData,
         patient_story: TEST_STORY
       };
+      console.log("saving with story...");
       await handleSubmit(finalData);
 
       setFormData(finalData);
@@ -375,15 +386,29 @@ The pathway to recovery for this majestic eagle was carefully charted by the ded
   const handleSubmit = async (data = formData) => {
     console.log("submitting...");
     try {
-      await wp.apiFetch({
-        path: `/wildlink/v1/patient/${patientId}`,
-        method: 'POST',
-        data: {
-          ...data,
+      const submissionData = {
+        ...data,
+        // Convert empty/invalid dates to null
+        release_date: data.release_date && data.release_date !== '0000-00-00' 
+          ? data.release_date 
+          : null,
           user_uploaded_image: formData.patient_image !== options.species_options.find(s => s.id === formData.species_id)?.image
-        }
+      };
+
+      const path = patientId ? 
+      `/wildlink/v1/patient/${patientId}` : 
+      '/wildlink/v1/patient/new';
+      const response = await wp.apiFetch({
+        path: path,
+        method: 'POST',
+        data: submissionData
       });
+      if (!patientId && response.id) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        window.location.href = `admin.php?page=wildlink-add-patient&id=${response.id}`;
+      }
     } catch (err) {
+      console.error("Submit Error:", err);
       setError(err.message);
       throw err;
     }
