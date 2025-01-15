@@ -7,6 +7,9 @@ Author: David Carmichael
 */
 
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
+require_once plugin_dir_path(__FILE__) . 'includes/wildlink-settings.php';
+require_once plugin_dir_path(__FILE__) . 'includes/wildlink-admin.php';
+require_once plugin_dir_path(__FILE__) . 'includes/wildlink-ai.php';
 
 register_activation_hook(__FILE__, 'wildlink_create_tables');
 
@@ -38,46 +41,6 @@ function wildlink_enqueue_scripts() {
     }
 }
 add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
-
-// Add admin menu
-function wildlink_admin_menu() {
-    add_menu_page(
-        'Patients',
-        'Patients',
-        'manage_options',
-        'wildlink-patients',
-        'wildlink_patients_page',
-        'dashicons-clipboard',
-        30
-    );
-
-    add_submenu_page(
-        'wildlink-patients',
-        'Add New Patient',
-        'Add New',
-        'manage_options',
-        'wildlink-add-patient',
-        'wildlink_add_patient_page'
-    );
-}
-add_action('admin_menu', 'wildlink_admin_menu');
-
-// Admin page handlers
-function wildlink_patients_page() {
-    echo '<div id="wildlink-admin-root"></div>';
-}
-
-function wildlink_add_patient_page() {
-    // Add debug logging
-    error_log('Rendering patient form page');
-    
-    // Add wrapper div for WP admin
-    echo '<div class="wrap">';
-    echo '<h1 class="wp-heading-inline">Add/Edit Patient</h1>';
-    // Add form container
-    echo '<div id="patient-form-root"></div>';
-    echo '</div>';
-}
 
 // Enqueue admin scripts and styles
 function wildlink_enqueue_admin_scripts($hook) {

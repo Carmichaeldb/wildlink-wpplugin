@@ -339,48 +339,71 @@ export const usePatientForm = (patientId) => {
       console.log("1. Starting generation...");
       setIsGenerating(true);
       
-      // Single state update for loading
       const loadingData = {
         ...formData,
         patient_story: "We are writing the story please wait..."
       };
       console.log("2. Loading data:", loadingData);
       setFormData(loadingData);
+    
+    const selectedSpecies = options.species_options.find(
+      opt => parseInt(opt.id) === parseInt(formData.species_id)
+    )?.label || '';
+    console.log("Selected Species:", selectedSpecies);
+      
+      const selectedConditions = formData.patient_conditions
+        .map(id => options.conditions_options.find(opt => opt.id === parseInt(id))?.label)
+        .filter(Boolean)
+        .join(', ');
+        
+      const selectedTreatments = formData.patient_treatments
+        .map(id => options.treatments_options.find(opt => opt.id === parseInt(id))?.label)
+        .filter(Boolean)
+        .join(', ');
+
+        if (!selectedSpecies) {
+          throw new Error('Species is required for story generation');
+        }
   
-      // Cancelable timeout
-      await new Promise((resolve, reject) => {
-        timeoutId = setTimeout(resolve, 2000);
-        console.log("3. Finish timeout");
+      // Call our new AI endpoint
+      const response = await wp.apiFetch({
+        path: 'wildlink/v1/generate-story',
+        method: 'POST',
+        data: {
+          patient_case: formData.patient_case,
+          species: selectedSpecies,
+          location_found: formData.location_found,
+          date_admitted: formData.date_admitted,
+          age_range: formData.age_range,
+          conditions: selectedConditions,
+          treatments: selectedTreatments
+        }
       });
-      console.log("4. Creating test story");
-      // Test story
-      const TEST_STORY = `In the serene vicinity of Campbell River, an sub-adult bald eagle, once a sovereign of the skies, was discovered in a precarious state, burdened by the limitations imposed by a broken wing. Admitted to the wildlife rehabilitation hospital on March 28, 2024, under case number BAEA 083, this noble creature faced a challenging ordeal, contending not only with the physical hindrances of its injury but also with infection and emaciation, a trio of hardships that severely tested its fortitude. The rehabilitation staff, aware of the critical care required, promptly devised a comprehensive treatment regimen aimed at mending its body and spirit.
   
-The pathway to recovery for this majestic eagle was carefully charted by the dedicated rehabilitation staff, incorporating an array of interventions including physiotherapy to rehabilitate its weakened muscles, a wing wrap to support the healing process of the broken bone, and fluid therapy coupled with nutritional support to counteract its state of dehydration and malnutrition. Crucially, antibiotics were administered to combat the infection that plagued it, an essential component of the treatment plan that addressed the immediate threat to its well-being. Day by day, the eagle's resilience, bolstered by the unwavering commitment of the rehabilitation staff, signified a gradual return to its innate strength, signaling a hopeful journey towards its eventual reintegration into the wild, a testament to the collective efforts of those dedicated to the preservation of nature's magnificence.`;
-      console.log("5. Creating final data");
+      console.log("4. Creating story from AI");
       const finalData = {
         ...formData,
-        patient_story: TEST_STORY
+        patient_story: response.story
       };
       console.log("saving with story...");
       await handleSubmit(finalData);
-
+  
       setFormData(finalData);
-    setPreviousCriticalValues({
-      species_id: finalData.species_id,
-      patient_conditions: finalData.patient_conditions,
-      patient_treatments: finalData.patient_treatments
-    });
-    setHasCriticalChanges(false);
-
-  } catch (error) {
-    console.error('Failed to generate story:', error);
-    setError('Failed to generate story: ' + error.message);
-  } finally {
-    setIsGenerating(false);
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-};
+      setPreviousCriticalValues({
+        species_id: finalData.species_id,
+        patient_conditions: finalData.patient_conditions,
+        patient_treatments: finalData.patient_treatments
+      });
+      setHasCriticalChanges(false);
+  
+    } catch (error) {
+      console.error('Failed to generate story:', error);
+      setError('Failed to generate story: ' + error.message);
+    } finally {
+      setIsGenerating(false);
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
   /// PATIENT FORM SUBMISSION ///
   const handleSubmit = async (data = formData) => {
