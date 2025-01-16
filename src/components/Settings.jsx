@@ -68,12 +68,23 @@ Avoid using specific names or locations beyond what is listed here.`;
     }));
   };
 
-  const handleResetPrompt = () => {
-    setSettings(prev => ({
-      ...prev,
-      story_prompt_template: defaultPrompt
-    }));
-    setMessage({ type: 'info', content: 'Prompt template reset to default. Don\'t forget to save your changes!' });
+  const handleResetPrompt = async () => {
+    try {
+      const response = await wp.apiFetch({
+        path: '/wildlink/v1/settings/defaults',
+        method: 'GET'
+      });
+      
+      if (response.story_prompt_template) {
+        setSettings(prev => ({
+          ...prev,
+          story_prompt_template: response.story_prompt_template
+        }));
+        setMessage({ type: 'info', content: 'Prompt template reset to default. Don\'t forget to save your changes!' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', content: 'Failed to reset prompt template' });
+    }
   };
 
   return (

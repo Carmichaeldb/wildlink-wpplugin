@@ -60,6 +60,7 @@ function wildlink_create_tables() {
             patient_id varchar(5) UNSIGNED NOT NULL,
             patient_case varchar(255) NOT NULL,
             species_id mediumint(9) NOT NULL,
+            age_range_id SMALLINT(9) NOT NULL,
             date_admitted date NOT NULL,
             location_found varchar(100) NOT NULL,
             release_date date,

@@ -77,6 +77,27 @@ const PatientForm = ({ patientId }) => {
             isSearchable
             disabled={isGenerating}
           />
+        <Select
+            name="age_range_id"
+            inputId="age_range_select"
+            aria-labelledby="age_range-label"
+            options={options.age_range_options.map((age_range) => ({
+              value: age_range.id,
+              label: age_range.label,
+            }))}
+            value={
+              formData.age_range_id
+                ? {
+                    value: formData.age_range_id,
+                    label: options.age_range_options.find(
+                      (s) => s.id === formData.age_range_id
+                    )?.label,
+                  }
+                : null
+            }
+            onChange={handleSelectChange}
+            disabled={isGenerating}
+          />
         </div>
         <div className="form-group">
           <label htmlFor="date_admitted">Date Admitted</label>

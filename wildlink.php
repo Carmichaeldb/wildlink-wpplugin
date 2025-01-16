@@ -129,10 +129,16 @@ function wildlink_get_options() {
             "SELECT id, treatment_name as label FROM {$wpdb->prefix}treatments"
         );
 
+        // Get age ranges
+        $age_range_list = $wpdb->get_results(
+            "SELECT id, range_name as label FROM {$wpdb->prefix}age_ranges"
+        );
+
         return rest_ensure_response([
             'species_options' => $species,
             'conditions_options' => $conditions_list,
             'treatments_options' => $treatments_list,
+            'age_range_options' => $age_range_list
         ]);
     } catch (Exception $e) {
         return new WP_Error('db_error', $e->getMessage());
@@ -201,6 +207,7 @@ function wildlink_create_patient($request) {
                 'patient_id' => $patient_id,
                 'patient_case' => $data['patient_case'],
                 'species_id' => $data['species_id'],
+                'age_range_id' => $data ['age_range_id'],
                 'date_admitted' => $data['date_admitted'],
                 'location_found' => $data['location_found'] ?? '',
                 'release_date' => $data['release_date'] ?? null,
@@ -317,6 +324,7 @@ function wildlink_update_patient_data($request) {
             [
                 'patient_case' => $data['patient_case'],
                 'species_id' => $data['species_id'],
+                'age_range_id' => $data ['age_range_id'],
                 'date_admitted' => $data['date_admitted'],
                 'location_found' => $data['location_found'] ?? '',
                 'release_date' => $data['release_date'] ?? null,

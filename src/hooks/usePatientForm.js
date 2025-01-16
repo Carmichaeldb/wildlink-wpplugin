@@ -16,6 +16,7 @@ export const usePatientForm = (patientId) => {
   const [formData, setFormData] = useState({
     patient_case: '',
     species_id: '',
+    age_range_id: '',
     date_admitted: '',
     location_found: '',
     is_released: false,
@@ -27,6 +28,7 @@ export const usePatientForm = (patientId) => {
   });
   const [options, setOptions] = useState({
     species_options: [],
+    age_range_options: [],
     conditions_options: [],
     treatments_options: []
   });
@@ -51,8 +53,11 @@ export const usePatientForm = (patientId) => {
           path: '/wildlink/v1/options'
         });
 
+        console.log(optionsResponse);
+
         setOptions({
           species_options: optionsResponse.species_options || [],
+          age_range_options: optionsResponse.age_range_options || [],
           conditions_options: optionsResponse.conditions_options || [],
           treatments_options: optionsResponse.treatments_options || []
         });
@@ -68,6 +73,7 @@ export const usePatientForm = (patientId) => {
             setFormData({
               patient_case: patientResponse.patient?.patient_case || '',
               species_id: patientResponse.patient?.species_id || '',
+              age_range_id: patientResponse.patient?.age_range_id || '',
               date_admitted: patientResponse.patient?.date_admitted || '',
               location_found: patientResponse.patient?.location_found || '',
               is_released: patientResponse.patient?.release_date && patientResponse.patient?.release_date !== '0000-00-00',
@@ -336,30 +342,31 @@ export const usePatientForm = (patientId) => {
     let timeoutId;
   
     try {
-      console.log("1. Starting generation...");
       setIsGenerating(true);
       
       const loadingData = {
         ...formData,
         patient_story: "We are writing the story please wait..."
       };
-      console.log("2. Loading data:", loadingData);
       setFormData(loadingData);
-    
-    const selectedSpecies = options.species_options.find(
-      opt => parseInt(opt.id) === parseInt(formData.species_id)
-    )?.label || '';
-    console.log("Selected Species:", selectedSpecies);
+
+      const selectedSpecies = options.species_options.find(
+        opt => parseInt(opt.id) === parseInt(formData.species_id)
+      )?.label || '';
+
+      const selectedAgeRange = options.age_range_options.find(
+        opt => parseInt(opt.id) === parseInt(formData.age_range_id)
+      )?.label || '';
       
       const selectedConditions = formData.patient_conditions
-        .map(id => options.conditions_options.find(opt => opt.id === parseInt(id))?.label)
-        .filter(Boolean)
-        .join(', ');
-        
+      .map(id => options.conditions_options.find(opt => parseInt(opt.id) === parseInt(id))?.label)
+      .filter(Boolean)
+      .join(', ');
+      
       const selectedTreatments = formData.patient_treatments
-        .map(id => options.treatments_options.find(opt => opt.id === parseInt(id))?.label)
-        .filter(Boolean)
-        .join(', ');
+      .map(id => options.treatments_options.find(opt => parseInt(opt.id) === parseInt(id))?.label)
+      .filter(Boolean)
+      .join(', ');
 
         if (!selectedSpecies) {
           throw new Error('Species is required for story generation');
@@ -372,20 +379,19 @@ export const usePatientForm = (patientId) => {
         data: {
           patient_case: formData.patient_case,
           species: selectedSpecies,
+          age: selectedAgeRange,
           location_found: formData.location_found,
           date_admitted: formData.date_admitted,
-          age_range: formData.age_range,
           conditions: selectedConditions,
           treatments: selectedTreatments
         }
       });
-  
-      console.log("4. Creating story from AI");
+
       const finalData = {
         ...formData,
         patient_story: response.story
       };
-      console.log("saving with story...");
+
       await handleSubmit(finalData);
   
       setFormData(finalData);

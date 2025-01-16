@@ -4,20 +4,21 @@ function wildlink_register_settings() {
         'type' => 'object',
         'default' => array(
             'openai_api_key' => '',
-            'story_prompt_template' => "Create a hopeful 2 paragraph narrative about a wild animal currently being treated at our wildlife rehabilitation center, focusing on the patient's resilience and recovery. 
-                Do not refer to the center's location. Details:
-                - Case Number: {patient_case}
-                - Species: {species}
-                - Found at: {location_found}
-                - Admission Date: {date_admitted}
-                - Age Range: {age_range}
-                - Conditions: {conditions}
-                - Required Treatments: {treatments}
+            'story_prompt_template' => "Create a detailed 2-paragraph story about a {age_range} {species} (Case# {patient_case}) in our wildlife rehabilitation center's care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
 
-                Emphasize the dedicated care by our rehabilitation staff and volunteers using general terms like \"team members\". 
-                Ensure realistic timelines based on the admission date for treatments immediate and future.
-                The story should inspire support through its focus on the animal's recovery process. 
-                Avoid using specific names or locations beyond what is listed here.",
+First paragraph: Describe the circumstances of admission, found in {location_found}. Detail the specific medical conditions: {conditions}. Explain how these conditions affect the animal and why they required professional care.
+
+Second paragraph: Focus on the treatment progress SO FAR, keeping in mind this animal has only been in care for {days_in_care} days. If {days_in_care} is less than 7 days, focus on initial response to treatment and immediate care plans rather than long-term progress. If {days_in_care} is more than 7 days, you may describe longer-term progress. Explain how each treatment ({treatments}) is contributing to the recovery process. Keep the timeline realistic - do not imply weeks or months of progress unless the admission date supports this.
+
+Important guidelines:
+- Maintain medical accuracy while being engaging
+- Specifically address each listed condition and treatment
+- Focus on the rehabilitation process rather than general observations
+- Use professional but accessible language
+- Do not include specific staff names or center location
+- Keep the tone hopeful but realistic about the recovery process
+- CRITICAL: Ensure all timeline references match the actual time in care ({days_in_care} days)
+- Use natural language when describing the animals time in our care",
             'cards_per_page' => 9,
             'show_release_status' => true,
             'show_admission_date' => true,
@@ -43,12 +44,25 @@ function wildlink_register_settings() {
             }
         )
     ));
+    register_rest_route('wildlink/v1', '/settings/defaults', array(
+        'methods' => 'GET',
+        'callback' => 'wildlink_get_default_settings',
+        'permission_callback' => function() {
+            return current_user_can('manage_options');
+        }
+    ));
 }
 add_action('rest_api_init', 'wildlink_register_settings');
 
 function wildlink_get_settings() {
     $settings = get_option('wildlink_settings');
     return rest_ensure_response($settings);
+}
+
+function wildlink_get_default_settings() {
+    // Get the default settings from the registration
+    $defaults = get_registered_settings()['wildlink_settings']['default'];
+    return rest_ensure_response($defaults);
 }
 
 function wildlink_update_settings($request) {
