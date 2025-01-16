@@ -23,10 +23,9 @@ function wildlink_generate_story($patient_data) {
                "Current Date: " . current_time('Y-m-d');
     }
 
-    // Get OpenAI API key from settings
-    $settings = get_option('wildlink_settings');
-    $api_key = $settings['openai_api_key'];
-
+    // Get and decrypt the API key
+    $api_key = wildlink_get_api_key();
+    
     if (empty($api_key)) {
         return new WP_Error('no_api_key', 'OpenAI API key is not configured');
     }
@@ -42,8 +41,29 @@ function wildlink_generate_story($patient_data) {
     error_log('Current date: ' . $current_date);
     error_log('Admission date: ' . $admission_date);
 
-    // Get the prompt template from settings
-    $prompt_template = $settings['story_prompt_template'];
+    // Get settings and check for prompt template
+    $settings = get_option('wildlink_settings', array());
+    if (empty($settings['story_prompt_template'])) {
+        error_log('No prompt template found in settings - using default');
+        $prompt_template = 'Create a detailed 2-paragraph story about a {age_range} {species} (Case #{patient_case}) in our wildlife rehabilitation center\'s care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
+
+First paragraph: Describe the circumstances of admission, found in {location_found}. Detail the specific medical conditions: {conditions}. Explain how these conditions affect the animal and why they required professional care.
+
+Second paragraph: Focus on the treatment progress SO FAR, keeping in mind this animal has only been in care for {days_in_care} days. If {days_in_care} is less than 7 days, focus on initial response to treatment and immediate care plans rather than long-term progress. If {days_in_care} is more than 7 days, you may describe longer-term progress. Explain how each treatment ({treatments}) is contributing to the recovery process. Keep the timeline realistic - do not imply weeks or months of progress unless the admission date supports this.
+
+Important guidelines:
+- Maintain medical accuracy while being engaging
+- Specifically address each listed condition and treatment
+- Focus on the rehabilitation process rather than general observations
+- Use professional but accessible language
+- Do not include specific staff names or center location
+- Keep the tone hopeful but realistic about the recovery process
+- CRITICAL: Ensure all timeline references match the actual time in care ({days_in_care} days)';
+    } else {
+        $prompt_template = $settings['story_prompt_template'];
+    }
+
+    error_log('Final prompt sent to AI: ' . $prompt_template);
 
     // Replace placeholders with actual data
     $prompt = str_replace(
@@ -75,12 +95,13 @@ function wildlink_generate_story($patient_data) {
     error_log('Final prompt sent to AI: ' . $prompt);
 
     // Call OpenAI API with increased timeout
-    $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
-        'timeout' => 30, // Increase timeout to 30 seconds
-        'headers' => [
-            'Authorization' => 'Bearer ' . $api_key,
+    $url = 'https://api.openai.com/v1/chat/completions';
+    
+    $response = wp_remote_post($url, array(
+        'headers' => array(
+            'Authorization' => 'Bearer ' . $api_key,  // Now using decrypted key
             'Content-Type' => 'application/json',
-        ],
+        ),
         'body' => json_encode([
             'model' => 'gpt-4',
             'messages' => [
@@ -95,8 +116,9 @@ function wildlink_generate_story($patient_data) {
             ],
             'temperature' => 0.7,
             'max_tokens' => 1000
-        ])
-    ]);
+        ]),
+        'timeout' => 30
+    ));
 
     if (is_wp_error($response)) {
         return $response;

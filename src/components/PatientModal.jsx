@@ -1,7 +1,10 @@
 // src/components/PatientModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 
 const PatientModal = ({ patient, onClose }) => {
+  const settings = window.wildlinkData?.settings || {};
+  console.log('Settings:', settings);
+
   console.log('Modal rendering with patient:', patient);
     return (
       <div className="patient-modal-overlay">
@@ -41,7 +44,30 @@ const PatientModal = ({ patient, onClose }) => {
               <p key={idx}>{paragraph}</p>
             ))}
           </div>
-  
+          <div className="wildlink-story-metadata">
+            <small>
+                Story created: {new Date(patient.story_created_at).toLocaleDateString()}
+                {patient.story_updated_at !== patient.story_created_at && (
+                    <>
+                        <br />
+                        Last updated: {new Date(patient.story_updated_at).toLocaleDateString()}
+                    </>
+                )}
+            </small>
+          </div>
+          {settings.donation_url && (
+            <div className="patient-donation-section">
+              <p>{settings.donation_message}</p>
+              <a 
+                href={settings.donation_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="patient-donate-button"
+              >
+                Donate Now
+              </a>
+            </div>
+          )}
           <div className="patient-modal-footer">
             <button 
               type="button" 

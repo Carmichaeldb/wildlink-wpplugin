@@ -19,6 +19,8 @@ Important guidelines:
 - Keep the tone hopeful but realistic about the recovery process
 - CRITICAL: Ensure all timeline references match the actual time in care ({days_in_care} days)
 - Use natural language when describing the animals time in our care",
+            'donation_url' => '',
+            'donation_message' => 'Support this animal\'s recovery by making a donation to our wildlife center.',
             'cards_per_page' => 9,
             'show_release_status' => true,
             'show_admission_date' => true,
@@ -68,10 +70,30 @@ function wildlink_get_default_settings() {
 function wildlink_update_settings($request) {
     $settings = $request->get_params();
     
+    // Debug log
+    error_log('Updating settings with API key: ' . substr($settings['openai_api_key'], 0, 5) . '...');
+    
+    // Encrypt API key before saving
+    if (!empty($settings['openai_api_key'])) {
+        try {
+            $key = wp_salt('auth'); // Uses WordPress's unique salt
+            $method = "AES-256-CBC";
+            $iv = random_bytes(openssl_cipher_iv_length($method));
+            $encrypted = openssl_encrypt($settings['openai_api_key'], $method, $key, 0, $iv);
+            $settings['openai_api_key'] = base64_encode($iv . $encrypted);
+            error_log('Successfully encrypted API key');
+        } catch (Exception $e) {
+            error_log('Encryption error: ' . $e->getMessage());
+            return new WP_Error('encryption_failed', 'Failed to encrypt API key: ' . $e->getMessage());
+        }
+    }
+    
     // Sanitize and validate the settings
     $sanitized = array(
         'openai_api_key' => sanitize_text_field($settings['openai_api_key']),
         'story_prompt_template' => wp_kses_post($settings['story_prompt_template']),
+        'donation_url' => esc_url_raw($settings['donation_url']),
+        'donation_message' => sanitize_text_field($settings['donation_message']),
         'cards_per_page' => absint($settings['cards_per_page']),
         'show_release_status' => (bool) $settings['show_release_status'],
         'show_admission_date' => (bool) $settings['show_admission_date'],
@@ -81,4 +103,24 @@ function wildlink_update_settings($request) {
 
     update_option('wildlink_settings', $sanitized);
     return rest_ensure_response($sanitized);
+}
+
+// Function to get decrypted API key
+function wildlink_get_api_key() {
+    $settings = get_option('wildlink_settings');
+    if (!empty($settings['openai_api_key'])) {
+        try {
+            $key = wp_salt('auth');
+            $method = "AES-256-CBC";
+            $decoded = base64_decode($settings['openai_api_key']);
+            $iv_length = openssl_cipher_iv_length($method);
+            $iv = substr($decoded, 0, $iv_length);
+            $encrypted = substr($decoded, $iv_length);
+            return openssl_decrypt($encrypted, $method, $key, 0, $iv);
+        } catch (Exception $e) {
+            error_log('Decryption error: ' . $e->getMessage());
+            return '';
+        }
+    }
+    return '';
 }

@@ -1,4 +1,4 @@
-/* Table Styles */
+/* Patient Table Styles */
 .wp-list-table .row-actions {
   position: relative;
   left: 0;
@@ -42,7 +42,7 @@
   text-align: center;
   vertical-align: middle;
 }
-
+/* Patient Modal Styles */
 /* Overlay background */
 .patient-modal-overlay {
   position: fixed;
@@ -138,4 +138,72 @@
   margin-top: 20px;
   white-space: pre-wrap;
   text-align: justify;
+}
+/* Donation Button */
+.patient-donation-section {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+  border: 1px solid #e9ecef;
+}
+
+.patient-donate-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #28a745;
+  color: white !important;
+  text-decoration: none !important;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-top: 10px;
+  transition: background-color 0.2s;
+}
+
+.patient-donate-button:hover {
+  background-color: #218838;
+  color: white !important;
+  text-decoration: none !important;
+}
+
+/* Settings Styles */
+.wildlink-settings-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.wildlink-settings-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.wildlink-form-field {
+  margin-bottom: 15px;
+}
+
+.wildlink-form-field label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+.wildlink-form-field input {
+  width: 100%;
+  max-width: 500px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.wildlink-form-field small {
+  display: block;
+  margin-top: 5px;
+  color: #666;
+  font-style: italic;
 }

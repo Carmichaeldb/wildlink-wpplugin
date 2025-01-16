@@ -73,11 +73,19 @@ function wildlink_enqueue_admin_scripts($hook) {
         true
     );
 
+    // Get settings but only send safe for frontend
+    $settings = get_option('wildlink_settings');
+    $safe_settings = array(
+        'donation_url' => $settings['donation_url'] ?? '',
+        'donation_message' => $settings['donation_message'] ?? '',
+    );
+
     wp_localize_script('wildlink-admin', 'wildlinkData', array(
         'debug' => true,
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('wildlink_nonce'),
-        'adminPage' => $hook
+        'adminPage' => $hook,
+        'settings' => $safe_settings // Only pass safe settings
     ));
 }
 add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
@@ -149,11 +157,14 @@ function wildlink_get_patients_list() {
     global $wpdb;
     
     $patients = $wpdb->get_results("
-        SELECT pm.*, s.common_name as species
+        SELECT pm.*, s.common_name as species, DATE_FORMAT(pm.created_at, '%Y-%m-%d %H:%i:%s') as story_created_at,
+        DATE_FORMAT(pm.updated_at, '%Y-%m-%d %H:%i:%s') as story_updated_at
         FROM {$wpdb->prefix}patient_meta pm
         LEFT JOIN {$wpdb->prefix}species s ON pm.species_id = s.id
         ORDER BY pm.date_admitted DESC
     ");
+
+    error_log('Patient Query: ' . $patients);
 
     return rest_ensure_response($patients);
 }

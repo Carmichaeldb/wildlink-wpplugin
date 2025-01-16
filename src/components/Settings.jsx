@@ -140,15 +140,36 @@ Avoid using specific names or locations beyond what is listed here.`;
                   </button>
                 </p>
                 <p className="description">
-                  Available placeholders: 
-                  {'{patient_case}'}, 
-                  {'{species}'}, 
-                  {'{location_found}'}, 
-                  {'{date_admitted}'}, 
-                  {'{age_range}'}, 
-                  {'{conditions}'}, 
-                  {'{treatments}'}
+                  Available placeholders: {'{patient_case}, {species}, {age_range}, {location_found}, {date_admitted}, {conditions}, {treatments}'}
                 </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Donation Settings</th>
+              <td>
+                <div className="wildlink-form-field">
+                  <label htmlFor="donation_url">Donation URL</label>
+                  <input
+                    type="url"
+                    id="donation_url"
+                    name="donation_url"
+                    value={settings.donation_url || ''}
+                    onChange={handleInputChange}
+                  />
+                  <small>Enter the URL where users can make donations</small>
+                </div>
+
+                <div className="wildlink-form-field">
+                  <label htmlFor="donation_message">Donation Message</label>
+                  <input
+                    type="text"
+                    id="donation_message"
+                    name="donation_message"
+                    value={settings.donation_message || ''}
+                    onChange={handleInputChange}
+                  />
+                  <small>Message to display with the donation button</small>
+                </div>
               </td>
             </tr>
             <tr>
