@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
 const Settings = () => {
-  const defaultPrompt = `Create a hopeful 2 paragraph narrative about a wild animal currently being treated at our wildlife rehabilitation center, focusing on the patient's resilience and recovery. 
-Do not refer to the center's location. Details:
-- Case Number: {patient_case}
-- Species: {species}
-- Found at: {location_found}
-- Admission Date: {date_admitted}
-- Age Range: {age_range}
-- Conditions: {conditions}
-- Required Treatments: {treatments}
-
-Emphasize the dedicated care by our rehabilitation staff and volunteers using general terms like "team members". 
-Ensure realistic timelines based on the admission date for treatments immediate and future.
-The story should inspire support through its focus on the animal's recovery process. 
-Avoid using specific names or locations beyond what is listed here.`;
-
   const [settings, setSettings] = useState({
     openai_api_key: '',
     story_prompt_template: '',
@@ -28,6 +13,7 @@ Avoid using specific names or locations beyond what is listed here.`;
 
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', content: '' });
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -103,14 +89,23 @@ Avoid using specific names or locations beyond what is listed here.`;
                 <label htmlFor="openai_api_key">OpenAI API Key</label>
               </th>
               <td>
-                <input
-                  type="password"
-                  name="openai_api_key"
-                  id="openai_api_key"
-                  value={settings.openai_api_key}
-                  onChange={handleInputChange}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    name="openai_api_key"
+                    id="openai_api_key"
+                    value={settings.openai_api_key}
+                    onChange={handleInputChange}
                   className="regular-text"
                 />
+                <button type="button" 
+                    id="toggle_api_key" 
+                    class="button" 
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                    {showApiKey ? 'Hide' : 'Show'}
+                    </button>
+                </div>
                 <p className="description">
                   Enter your OpenAI API key. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI's website</a>
                 </p>
@@ -140,7 +135,7 @@ Avoid using specific names or locations beyond what is listed here.`;
                   </button>
                 </p>
                 <p className="description">
-                  Available placeholders: {'{patient_case}, {species}, {age_range}, {location_found}, {date_admitted}, {conditions}, {treatments}'}
+                  Available placeholders: {'{patient_case}, {species}, {age}, {location_found}, {date_admitted}, {days_in_care}, {current_date}, {conditions}, {treatments}'}
                 </p>
               </td>
             </tr>

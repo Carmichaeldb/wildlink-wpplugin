@@ -4,7 +4,7 @@ function wildlink_register_settings() {
         'type' => 'object',
         'default' => array(
             'openai_api_key' => '',
-            'story_prompt_template' => "Create a detailed 2-paragraph story about a {age_range} {species} (Case# {patient_case}) in our wildlife rehabilitation center's care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
+            'story_prompt_template' => "Create a detailed 2-paragraph story about a {age} {species} (Case# {patient_case}) in our wildlife rehabilitation center's care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
 
 First paragraph: Describe the circumstances of admission, found in {location_found}. Detail the specific medical conditions: {conditions}. Explain how these conditions affect the animal and why they required professional care.
 
@@ -58,6 +58,9 @@ add_action('rest_api_init', 'wildlink_register_settings');
 
 function wildlink_get_settings() {
     $settings = get_option('wildlink_settings');
+    if (!empty($settings['openai_api_key'])) {
+        $settings['openai_api_key'] = wildlink_get_api_key();
+    }
     return rest_ensure_response($settings);
 }
 
@@ -81,7 +84,6 @@ function wildlink_update_settings($request) {
             $iv = random_bytes(openssl_cipher_iv_length($method));
             $encrypted = openssl_encrypt($settings['openai_api_key'], $method, $key, 0, $iv);
             $settings['openai_api_key'] = base64_encode($iv . $encrypted);
-            error_log('Successfully encrypted API key');
         } catch (Exception $e) {
             error_log('Encryption error: ' . $e->getMessage());
             return new WP_Error('encryption_failed', 'Failed to encrypt API key: ' . $e->getMessage());

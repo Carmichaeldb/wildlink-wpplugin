@@ -44,8 +44,7 @@ function wildlink_generate_story($patient_data) {
     // Get settings and check for prompt template
     $settings = get_option('wildlink_settings', array());
     if (empty($settings['story_prompt_template'])) {
-        error_log('No prompt template found in settings - using default');
-        $prompt_template = 'Create a detailed 2-paragraph story about a {age_range} {species} (Case #{patient_case}) in our wildlife rehabilitation center\'s care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
+        $prompt_template = 'Create a detailed 2-paragraph story about a {age} {species} (Case #{patient_case}) in our wildlife rehabilitation center\'s care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
 
 First paragraph: Describe the circumstances of admission, found in {location_found}. Detail the specific medical conditions: {conditions}. Explain how these conditions affect the animal and why they required professional care.
 
@@ -62,9 +61,6 @@ Important guidelines:
     } else {
         $prompt_template = $settings['story_prompt_template'];
     }
-
-    error_log('Final prompt sent to AI: ' . $prompt_template);
-
     // Replace placeholders with actual data
     $prompt = str_replace(
         [
@@ -72,7 +68,7 @@ Important guidelines:
             '{species}',
             '{location_found}',
             '{date_admitted}',
-            '{age_range}',
+            '{age}',
             '{conditions}',
             '{treatments}',
             '{current_date}',
@@ -91,9 +87,6 @@ Important guidelines:
         ],
         $prompt_template
     );
-
-    error_log('Final prompt sent to AI: ' . $prompt);
-
     // Call OpenAI API with increased timeout
     $url = 'https://api.openai.com/v1/chat/completions';
     
@@ -147,12 +140,31 @@ add_action('rest_api_init', function () {
 function wildlink_handle_story_generation($request) {
     $patient_data = $request->get_params();
     
-    // Validate required fields
-    $required_fields = ['patient_case', 'species', 'location_found', 'date_admitted'];
-    foreach ($required_fields as $field) {
-        if (empty($patient_data[$field])) {
-            return new WP_Error('missing_field', "Missing required field: $field");
+    // Get current prompt template
+    $settings = get_option('wildlink_settings', array());
+    $prompt_template = $settings['story_prompt_template'] ?? '';
+    //Match all placeholders in the template
+    preg_match_all('/{([^}]+)}/', $prompt_template, $matches);
+    $required_placeholders = $matches[1];
+    
+    // Validate required fields for prompt placeholders
+    $missing_fields = array();
+    foreach ($required_placeholders as $placeholder) {
+        // Skip placeholders that don't need direct validation
+        if (in_array($placeholder, ['days_in_care', 'current_date'])) {
+            continue;
         }
+        
+        if (empty($patient_data[$placeholder])) {
+            $missing_fields[] = $placeholder;
+        }
+    }
+    
+    if (!empty($missing_fields)) {
+        return new WP_Error(
+            'missing_fields', 
+            'Missing required fields for the story template: ' . implode(', ', $missing_fields)
+        );
     }
 
     $story = wildlink_generate_story($patient_data);
