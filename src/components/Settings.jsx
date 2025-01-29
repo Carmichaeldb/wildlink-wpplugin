@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const Settings = () => {
-  const [settings, setSettings] = useState({
-    openai_api_key: '',
-    story_prompt_template: '',
-    cards_per_page: '9',
-    show_release_status: true,
-    show_admission_date: true,
-    default_species_image: '',
-    max_daily_generations: '50'
-  });
+  const [settings, setSettings] = useState({});
 
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', content: '' });
@@ -29,6 +21,11 @@ const Settings = () => {
       setMessage({ type: 'error', content: 'Failed to load settings' });
     }
   };
+
+  const availableModels = [
+    { value: 'gpt-4o', label: 'GPT-4o (Most Capable)', description: 'Best quality, most reliable for complex tasks' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o-mini (Most cost-effective)', description: 'Faster and more cost-effective' }
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,6 +110,29 @@ const Settings = () => {
             </tr>
             <tr>
               <th scope="row">
+                  <label htmlFor="ai_model">AI Model</label>
+              </th>
+              <td>
+                  <select
+                      name="ai_model"
+                      id="ai_model"
+                      value={settings.ai_model}
+                      onChange={handleInputChange}
+                      className="regular-text"
+                  >
+                      {availableModels.map(model => (
+                          <option key={model.value} value={model.value}>
+                              {model.label}
+                          </option>
+                      ))}
+                  </select>
+                  <p className="description">
+                      {availableModels.find(m => m.value === settings.ai_model)?.description}
+                  </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
                 <label htmlFor="story_prompt_template">Story Prompt Template</label>
               </th>
               <td>
@@ -170,27 +190,19 @@ const Settings = () => {
             <tr>
               <th scope="row">Display Settings</th>
               <td>
-                <fieldset>
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="show_release_status"
-                      checked={settings.show_release_status}
-                      onChange={handleInputChange}
-                    />
-                    Show release status on patient cards
-                  </label>
-                  <br />
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="show_admission_date"
-                      checked={settings.show_admission_date}
-                      onChange={handleInputChange}
-                    />
-                    Show admission date on patient cards
-                  </label>
-                </fieldset>
+                <input
+                    type="number"
+                    name="cards_per_page"
+                    id="cards_per_page"
+                    min="1"
+                    max="100"
+                    value={settings.cards_per_page}
+                    onChange={handleInputChange}
+                    className="small-text"
+                />
+                <p className="description">
+                    Number of patient cards to display per page in the list view.
+                </p>
               </td>
             </tr>
           </tbody>

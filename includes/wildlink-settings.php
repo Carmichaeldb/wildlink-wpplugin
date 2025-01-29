@@ -4,6 +4,7 @@ function wildlink_register_settings() {
         'type' => 'object',
         'default' => array(
             'openai_api_key' => '',
+            'ai_model' => 'gpt-4o',
             'story_prompt_template' => "Create a detailed 2-paragraph story about a {age} {species} (Case# {patient_case}) in our wildlife rehabilitation center's care. The animal was admitted on {date_admitted} and has been in care for {days_in_care} days (current date: {current_date}). The story should focus specifically on the medical journey and recovery process.
 
 First paragraph: Describe the circumstances of admission, found in {location_found}. Detail the specific medical conditions: {conditions}. Explain how these conditions affect the animal and why they required professional care.
@@ -21,11 +22,7 @@ Important guidelines:
 - Use natural language when describing the animals time in our care",
             'donation_url' => '',
             'donation_message' => 'Support this animal\'s recovery by making a donation to our wildlife center.',
-            'cards_per_page' => 9,
-            'show_release_status' => true,
-            'show_admission_date' => true,
-            'default_species_image' => '',
-            'max_daily_generations' => 50
+            'cards_per_page' => 9
         )
     ));
 

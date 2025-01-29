@@ -1,11 +1,23 @@
 // src/components/PatientModal.jsx
-import React, { useState } from 'react';
+import React from 'react';
 
 const PatientModal = ({ patient, onClose }) => {
   const settings = window.wildlinkData?.settings || {};
-  console.log('Settings:', settings);
 
-  console.log('Modal rendering with patient:', patient);
+  const formatDate = (dateString) => {
+    const date = new Date(dateString + 'T12:00:00Z');
+    // Add WordPress timezone offset
+    const wpTimezoneOffset = window.wildlinkData?.timezoneOffset || 0;
+    date.setMinutes(date.getMinutes() + wpTimezoneOffset);
+    
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
     return (
       <div className="patient-modal-overlay">
         <div className="wp-block-wildlink-modal patient-modal">
@@ -14,12 +26,7 @@ const PatientModal = ({ patient, onClose }) => {
               <div className="patient-details">
                 <h2>Case Number: {patient.patient_case}</h2>
                 <p><strong>Species:</strong> {patient.species}</p>
-                <p><strong>Date Admitted:</strong> {new Date(patient.date_admitted).toLocaleDateString('en-US', { 
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}</p>
+                <p><strong>Date Admitted:</strong> {formatDate(patient.date_admitted)}</p>
                 <p><strong>Location Found:</strong> {patient.location_found}</p>
               </div>
               <div className="patient-image">
@@ -30,12 +37,7 @@ const PatientModal = ({ patient, onClose }) => {
   
           {patient.release_date && (
             <div className="patient-release-status">
-              <p>Released On: {new Date(patient.release_date).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}</p>
+              <p>Released On: {formatDate(patient.release_date)}</p>
             </div>
           )}
   

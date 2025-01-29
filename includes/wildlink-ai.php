@@ -23,6 +23,9 @@ function wildlink_generate_story($patient_data) {
                "Current Date: " . current_time('Y-m-d');
     }
 
+    $settings = get_option('wildlink_settings');
+    $model = !empty($settings['ai_model']) ? $settings['ai_model'] : 'gpt-4o';
+
     // Get and decrypt the API key
     $api_key = wildlink_get_api_key();
     
@@ -96,7 +99,7 @@ Important guidelines:
             'Content-Type' => 'application/json',
         ),
         'body' => json_encode([
-            'model' => 'gpt-4',
+            'model' => $model,
             'messages' => [
                 [
                     'role' => 'system',
