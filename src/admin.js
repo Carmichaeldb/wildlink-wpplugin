@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const patientId = urlParams.get('id');
     const formContainer = document.getElementById('patient-form-root');
     if (formContainer) {
-        console.log('Form container found, patientId:', patientId); // Debug log
         const root = createRoot(formContainer);
         root.render(<PatientForm patientId={patientId} />);
     }

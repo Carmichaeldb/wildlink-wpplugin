@@ -10,34 +10,62 @@ require_once plugin_dir_path(__FILE__) . 'includes/wildlink-db-setup.php';
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-settings.php';
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-admin.php';
 require_once plugin_dir_path(__FILE__) . 'includes/wildlink-ai.php';
+require_once plugin_dir_path(__FILE__) . 'includes/wildlink-shortcodes.php';
 
 register_activation_hook(__FILE__, 'wildlink_create_tables');
 
 // Frontend scripts
 function wildlink_enqueue_scripts() {
-    $script_path = plugin_dir_path(__FILE__) . 'build/index.js';
-    $style_path = plugin_dir_path(__FILE__) . 'build/index.css';
+    $script_path = plugin_dir_path(__FILE__) . 'build/frontend.js';
+    $style_path = plugin_dir_path(__FILE__) . 'build/frontend.css';
 
     if (file_exists($script_path)) {
         $version = filemtime($script_path);
         wp_register_script(
             'wildlink-frontend',
-            plugins_url('/build/index.js', __FILE__),
-            ['wp-element'],
+            plugins_url('/build/frontend.js', __FILE__),
+            ['wp-element', 'wp-api-fetch'],
             $version,
             true
         );
+
+        $settings = get_option('wildlink_settings', array());
+        $defaultColors = wildlink_get_default_colors();
+
+        wp_localize_script('wildlink-frontend', 'wildlinkData', array(
+            'apiRoot' => esc_url_raw(rest_url()),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'settings' => array(
+                'donation_url' => $settings['donation_url'] ?? '',
+                'donation_message' => $settings['donation_message'] ?? '',
+                'text_color' => $settings['text_color'] ?? $defaultColors['text_color'],
+                'background_color' => $settings['background_color'] ?? $defaultColors['background_color'],
+                'donation_background_color' => $settings['donation_background_color'] ?? $defaultColors['donation_background_color'],
+                'donation_text_color' => $settings['donation_text_color'] ?? $defaultColors['donation_text_color'],
+                'button_background_color' => $settings['button_background_color'] ?? $defaultColors['button_background_color'],
+                'button_text_color' => $settings['button_text_color'] ?? $defaultColors['button_text_color'],
+                'releasedBg' => $settings['releasedBg'] ?? $defaultColors['releasedBg'],
+                'releasedText' => $settings['releasedText'] ?? $defaultColors['releasedText'],
+                'inCareBg' => $settings['inCareBg'] ?? $defaultColors['inCareBg'],
+                'inCareText' => $settings['inCareText'] ?? $defaultColors['inCareText'],
+            ),
+            'defaultColors' => $defaultColors,
+            'timezoneOffset' => get_option('gmt_offset') * 60
+        ));
+
         wp_enqueue_script('wildlink-frontend');
     }
 
     if (file_exists($style_path)) {
         wp_register_style(
             'wildlink-frontend-style',
-            plugins_url('/build/index.css', __FILE__),
+            plugins_url('/build/frontend.css', __FILE__),
             [],
             $version
         );
         wp_enqueue_style('wildlink-frontend-style');
+        
+        wildlink_inject_css_variables();
     }
 }
 add_action('wp_enqueue_scripts', 'wildlink_enqueue_scripts');
@@ -48,47 +76,59 @@ function wildlink_enqueue_admin_scripts($hook) {
         return;
     }
 
-    // Load theme styles
-    
-    wp_enqueue_style(
-        'wildlink-theme-vars',
-        get_template_directory_uri() . '/style.css',
-        [],
-        wp_get_theme()->get('Version')
-    );
-
     // Load plugin styles
     wp_enqueue_style(
         'wildlink-admin-style',
         plugins_url('/build/admin.css', __FILE__),
-        ['wildlink-theme-vars'],
+        [],
         filemtime(plugin_dir_path(__FILE__) . 'build/admin.css')
     );
+
+    wp_enqueue_style('wp-color-picker');
+    wp_enqueue_script('wp-color-picker');
     
     wp_enqueue_script(
         'wildlink-admin',
         plugins_url('/build/admin.js', __FILE__),
-        ['react', 'react-dom', 'wp-element', 'wp-api-fetch'],
+        ['react', 'react-dom', 'wp-element', 'wp-api-fetch', 'wp-color-picker'],
         filemtime(plugin_dir_path(__FILE__) . 'build/admin.js'),
         true
     );
 
-    // Get settings but only send safe for frontend
-    $settings = get_option('wildlink_settings');
-    $safe_settings = array(
-        'donation_url' => $settings['donation_url'] ?? '',
-        'donation_message' => $settings['donation_message'] ?? '',
-    );
+    $settings = get_option('wildlink_settings', array());
+    $defaultColors = wildlink_get_default_colors();
 
     wp_localize_script('wildlink-admin', 'wildlinkData', array(
         'debug' => true,
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('wildlink_nonce'),
         'adminPage' => $hook,
-        'settings' => $safe_settings // Only pass safe settings
+        'settings' => array(
+            'donation_url' => $settings['donation_url'] ?? '',
+            'donation_message' => $settings['donation_message'] ?? '',
+            'text_color' => $settings['text_color'] ?? $defaultColors['text_color'],
+            'background_color' => $settings['background_color'] ?? $defaultColors['background_color'],
+            'donation_background_color' => $settings['donation_background_color'] ?? $defaultColors['donation_background_color'],
+            'donation_text_color' => $settings['donation_text_color'] ?? $defaultColors['donation_text_color'],
+            'button_background_color' => $settings['button_background_color'] ?? $defaultColors['button_background_color'],
+            'button_text_color' => $settings['button_text_color'] ?? $defaultColors['button_text_color'],
+            'releasedBg' => $settings['releasedBg'] ?? $defaultColors['releasedBg'],
+            'releasedText' => $settings['releasedText'] ?? $defaultColors['releasedText'],
+            'inCareBg' => $settings['inCareBg'] ?? $defaultColors['inCareBg'],
+            'inCareText' => $settings['inCareText'] ?? $defaultColors['inCareText'],
+        ),
+        'defaultColors' => $defaultColors,
     ));
+    
+    // Add colors as CSS variables
+    wildlink_inject_css_variables();
 }
 add_action('admin_enqueue_scripts', 'wildlink_enqueue_admin_scripts');
+
+// Add shortcode for patient list
+add_action('init', function() {
+    add_shortcode('wildlink_patients', 'wildlink_patient_list_shortcode');
+});
 
 // Custom REST endpoint
 add_action('rest_api_init', function() {
@@ -102,7 +142,19 @@ add_action('rest_api_init', function() {
     register_rest_route('wildlink/v1', '/patients', [
         'methods' => 'GET',
         'callback' => 'wildlink_get_patients_list',
-        'permission_callback' => '__return_true'
+        'permission_callback' => '__return_true',
+        'args' => [
+            'paginate' => [
+                'required' => false,
+                'default' => false,
+                'type' => 'boolean'
+            ],
+            'page' => [
+                'required' => false,
+                'default' => 1,
+                'type' => 'integer'
+            ]
+        ]
     ]);
     // Create a new patient
     register_rest_route('wildlink/v1', '/patient/new', [
@@ -149,30 +201,86 @@ function wildlink_get_options() {
             'age_range_options' => $age_range_list
         ]);
     } catch (Exception $e) {
-        return new WP_Error('db_error', $e->getMessage());
+        error_log('Wildlink error in get_options: ' . $e->getMessage());
+        return new WP_Error(
+            'options_error', 
+            'Error loading data options', 
+            ['status' => 500]
+        );
     }
 }
 
-function wildlink_get_patients_list() {
+function wildlink_get_patients_list($request) {
     global $wpdb;
     
-    $patients = $wpdb->get_results("
-        SELECT pm.*, s.common_name as species, DATE_FORMAT(pm.created_at, '%Y-%m-%d %H:%i:%s') as story_created_at,
-        DATE_FORMAT(pm.updated_at, '%Y-%m-%d %H:%i:%s') as story_updated_at
-        FROM {$wpdb->prefix}patient_meta pm
-        LEFT JOIN {$wpdb->prefix}species s ON pm.species_id = s.id
-        ORDER BY pm.date_admitted DESC
-    ");
+    try {
+        // Get pagination parameters
+        $paginate = $request->get_param('paginate') == '1';
+        $page = max(1, (int)$request->get_param('page'));
+        $settings = get_option('wildlink_settings', array());
+        $per_page = isset($settings['cards_per_page']) ? (int)$settings['cards_per_page'] : 12;
+        $offset = ($page - 1) * $per_page;
 
-    error_log('Patient Query: ' . $patients);
+        // Base query parts
+        $select = "SELECT pm.*, s.common_name as species, 
+                  DATE_FORMAT(pm.created_at, '%Y-%m-%d %H:%i:%s') as story_created_at,
+                  DATE_FORMAT(pm.updated_at, '%Y-%m-%d %H:%i:%s') as story_updated_at";
+        $from = "FROM {$wpdb->prefix}patient_meta pm
+                 LEFT JOIN {$wpdb->prefix}species s ON pm.species_id = s.id";
+        $order = "ORDER BY pm.date_admitted DESC";
 
-    return rest_ensure_response($patients);
+        if ($paginate) {
+            // Get total count
+            $count_query = "SELECT COUNT(*) FROM {$wpdb->prefix}patient_meta";
+            $total = $wpdb->get_var($count_query);
+            
+            if ($total === null) {
+                throw new Exception($wpdb->last_error ?: 'Failed to get total count');
+            }
+
+            // Build paginated query
+            $limit = $wpdb->prepare("LIMIT %d OFFSET %d", $per_page, $offset);
+            $query = "$select $from $order $limit";
+            
+            $patients = $wpdb->get_results($query);
+
+            if ($patients === false) {
+                throw new Exception($wpdb->last_error ?: 'Failed to get patients');
+            }
+
+            return rest_ensure_response([
+                'data' => $patients,
+                'total_pages' => ceil($total / $per_page),
+                'current_page' => $page,
+                'per_page' => $per_page,
+                'total' => $total
+            ]);
+        } else {
+            // Non-paginated query
+            $query = "$select $from $order";
+            $patients = $wpdb->get_results($query);
+
+            if ($patients === false) {
+                throw new Exception($wpdb->last_error ?: 'Failed to get patients');
+            }
+
+            return rest_ensure_response($patients);
+        }
+
+    } catch (Exception $e) {
+        error_log('Error in wildlink_get_patients_list: ' . $e->getMessage());
+        return new WP_Error(
+            'database_error',
+            $e->getMessage(),
+            array('status' => 500)
+        );
+    }
 }
 
 function generate_patient_id() {
     global $wpdb;
     
-    // Characters to use (excluding similar looking ones)
+    // Characters to use
     $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $length = 5;
     
@@ -269,7 +377,10 @@ function wildlink_create_patient($request) {
 
     } catch (Exception $e) {
         $wpdb->query('ROLLBACK');
-        return new WP_Error('insert_failed', $e->getMessage());
+        error_log('Wildlink error: ' . $e->getMessage());
+        return new WP_Error('database_error', 
+                          'There was a problem processing your request', 
+                          ['status' => 500]);
     }
 }
 
@@ -277,30 +388,39 @@ function wildlink_get_patient_data($request) {
     global $wpdb;
     $patient_id = $request['id'];
     
-    // Get patient meta
-    $patient_meta = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}patient_meta WHERE patient_id = %s",
-        $patient_id
-    ));
+    try {
+        // Get patient meta
+        $patient_meta = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}patient_meta WHERE patient_id = %s",
+            $patient_id
+        ));
 
-    // Get patient conditions
-    $conditions = $wpdb->get_col($wpdb->prepare(
-        "SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d",
-        $patient_meta->patient_id
-    ));
+        // Get patient conditions
+        $conditions = $wpdb->get_col($wpdb->prepare(
+            "SELECT condition_id FROM {$wpdb->prefix}patient_conditions WHERE patient_id = %d",
+            $patient_meta->patient_id
+        ));
 
-    // Get patient treatments 
-    $treatments = $wpdb->get_col($wpdb->prepare(
-        "SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d",
-        $patient_meta->patient_id
-    ));
+        // Get patient treatments 
+        $treatments = $wpdb->get_col($wpdb->prepare(
+            "SELECT treatment_id FROM {$wpdb->prefix}patient_treatments WHERE patient_id = %d",
+            $patient_meta->patient_id
+        ));
 
 
-    return rest_ensure_response([
-        'patient' => $patient_meta,
-        'patient_conditions' => $conditions,
-        'patient_treatments' => $treatments,
-    ]);
+        return rest_ensure_response([
+            'patient' => $patient_meta,
+            'patient_conditions' => $conditions,
+            'patient_treatments' => $treatments,
+        ]);
+    } catch (Exception $e) {
+        error_log('Wildlink error in get_patient_data: ' . $e->getMessage());
+        return new WP_Error(
+            'data_error',
+            'Unable to retrieve patient information',
+            ['status' => 404]
+        );
+    }
 }
 
 // Save patient data
@@ -309,10 +429,6 @@ function wildlink_update_patient_data($request) {
     
     $patient_id = $request['id'];
     $data = $request->get_json_params();
-
-    // logging to verify data while testing
-    error_log('Saving patient data for ID: ' . $patient_id);
-    error_log('Received data: ' . print_r($data, true));
     
     try {
         $wpdb->query('START TRANSACTION');
@@ -339,6 +455,7 @@ function wildlink_update_patient_data($request) {
                 'date_admitted' => $data['date_admitted'],
                 'location_found' => $data['location_found'] ?? '',
                 'release_date' => $data['release_date'] ?? null,
+                // If user uploaded image, use it, otherwise use species image
                 'patient_image' => !empty($data['user_uploaded_image']) ? 
                     $data['patient_image'] : 
                     $wpdb->get_var($wpdb->prepare(
@@ -386,13 +503,15 @@ function wildlink_update_patient_data($request) {
             }
         }
 
-        error_log('Successfully saved patient data');
         $wpdb->query('COMMIT');
         return rest_ensure_response(['success' => true]);
 
     } catch (Exception $e) {
-        error_log('Error saving patient data: ' . $e->getMessage());
-        return new WP_Error('save_failed', $e->getMessage(), ['status' => 500]);
+        $wpdb->query('ROLLBACK');
+        error_log('Wildlink error: ' . $e->getMessage());
+        return new WP_Error('database_error', 
+                            'There was a problem processing your request', 
+                            ['status' => 500]);
     }
 }
 
@@ -421,7 +540,12 @@ function wildlink_delete_patient($request) {
             
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
-            return new WP_Error('delete_failed', $e->getMessage());
+            error_log('Wildlink error in delete_patient: ' . $e->getMessage());
+            return new WP_Error(
+                'delete_failed', 
+                'Unable to delete the patient record', 
+                ['status' => 500]
+            );
         }
     }
 }
