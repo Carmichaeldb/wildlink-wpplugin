@@ -34,6 +34,13 @@
     align-items: center;
     width: 100%;
     padding: 0;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+  }
+
+  .patient-modal-content * {
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .patient-modal-header {
@@ -112,7 +119,7 @@
   .patient-story {
     margin: 20px 0;
     white-space: pre-wrap;
-    text-align: justify;
+    text-align: left;
     font-size: var(--wp--preset--font-size--medium, 1.1em);
     line-height: var(--wp--custom--line-height-body, 1.6);
   }

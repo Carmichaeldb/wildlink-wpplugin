@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('wildlink-patient-list');
     if (container) {
         const root = createRoot(container);
-        root.render(<PatientCardList />);
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedPatientId = urlParams.get('patient');
+        
+        root.render(<PatientCardList initialPatientId={sharedPatientId} />);
     }
 });

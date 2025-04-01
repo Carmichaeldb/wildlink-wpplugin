@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import PatientCard from "./PatientCard";
 import PatientModal from "./PatientModal";
 
-const PatientCardList = () => {
+const PatientCardList = ({ initialPatientId }) => {
   const [patients, setPatients] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -13,6 +13,22 @@ const PatientCardList = () => {
   useEffect(() => {
     loadPatients();
   }, [currentPage]);
+
+  // load modal if patient url param is present
+  useEffect(() => {
+    if (!initialPatientId || loading || patients.length === 0) return;
+    
+    const sharedPatient = patients.find(p => 
+      p.patient_id === initialPatientId 
+    );
+    
+    if (sharedPatient) {
+      setSelectedPatient(sharedPatient);
+    } else {
+      console.log("Patient not found:", initialPatientId);
+      console.log("Available patients:", patients.map(p => ({id: p.id, patient_id: p.patient_id})));
+    }
+  }, [initialPatientId, patients, loading]);
 
   // load patients
   const loadPatients = async () => {
