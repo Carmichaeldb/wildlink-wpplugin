@@ -4,7 +4,7 @@ export const usePatientForm = (patientId) => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const STORY_CRITICAL_FIELDS = ['species_id', 'patient_conditions', 'patient_treatments'];
+  const STORY_CRITICAL_FIELDS = ['species_id', 'age_range_id', 'patient_conditions', 'patient_treatments'];
   const NON_CRITICAL_FIELDS = ['patient_case', 'location_found', 'date_admitted'];
   const [previousCriticalValues, setPreviousCriticalValues] = useState({});
   const [previousNonCriticalValues, setPreviousNonCriticalValues] = useState({});
@@ -35,9 +35,10 @@ export const usePatientForm = (patientId) => {
 
   const currentCriticalValues = useMemo(() => ({
     species_id: formData.species_id,
+    age_range_id: formData.age_range_id,
     patient_conditions: formData.patient_conditions,
     patient_treatments: formData.patient_treatments
-  }), [formData.species_id, formData.patient_conditions, formData.patient_treatments]);
+  }), [formData.species_id, formData.age_range_id, formData.patient_conditions, formData.patient_treatments]);
 
   const currentNonCriticalValues = useMemo(() => ({
     patient_case: formData.patient_case,
@@ -89,6 +90,7 @@ export const usePatientForm = (patientId) => {
     
             setPreviousCriticalValues({
               species_id: patientResponse.patient?.species_id || '',
+              age_range_id: patientResponse.patient?.age_range_id || '',
               patient_conditions: patientResponse.patient_conditions || [],
               patient_treatments: patientResponse.patient_treatments || []
             });
@@ -225,6 +227,7 @@ export const usePatientForm = (patientId) => {
   const getWarningMessageField = (field) => {
     const messageFields = {
       'species_id': 'Species',
+      'age_range_id': 'Animal Age',
       'patient_conditions': 'Conditions',
       'patient_treatments': 'Treatments',
       'patient_case': 'Patient Case',
@@ -238,8 +241,8 @@ export const usePatientForm = (patientId) => {
     if (!formData.patient_story) return;
   
     const hasChanges = STORY_CRITICAL_FIELDS.filter(field => {
-      // Direct comparison for species_id
-      if (field === 'species_id') {
+      // Direct comparison for species_id and age range 
+      if (field === 'species_id' || field === 'age_range_id') {
         return previousCriticalValues[field] !== currentCriticalValues[field];
       }
       // Array comparison for arrays of conditions and treatments

@@ -25,7 +25,6 @@ const PatientForm = ({ patientId }) => {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
-  console.log(formData);
   return (
     <div className="patient-form">
       <form
